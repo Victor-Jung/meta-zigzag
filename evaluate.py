@@ -19,9 +19,8 @@ from itertools import repeat
 from classes.layer_rounding import mem_access_count_correct
 from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
-from sympy.ntheory import factorint
-import random
 import loma_copy as loma
+from reinforcement_learning_algo.optimizer import rl_temporal_mapping_optimizer
 
 
 def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_loop_fractional, spatial_loop_comb,
@@ -310,7 +309,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                     # Convert tl_list to chunked list to pass to parallel cores
                     n_processes = min(cpu_count(), input_settings.temporal_mapping_multiprocessing)
                     chunk_size = int(tl_combinations / n_processes) + (
-                                tl_combinations % n_processes > 0)  # avoids import math
+                            tl_combinations % n_processes > 0)  # avoids import math
                     tl_count = len(tl_list)
                     tl_list = [tl_list[i:i + chunk_size] for i in range(0, tl_combinations, chunk_size)]
 
@@ -528,33 +527,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                                                              layer_comb, spatial_loop_comb, ii_su)
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
-
-        print('--------- Reinforcement Learing Temporal Mapping Optimization ---------')
-        naive_TM = []
-        LPF_TM = []
-
-        # Extract the naive TM from the layer architecture contained in layer_post
-        index = 0
-        for layer_parameter in ['B', 'K', 'C', 'OY', 'OX', 'FY', 'FX']:
-            index += 1
-            naive_TM.append((index, layer_post[layer_parameter]))
-
-        # Break it down to LPF (Loop Prime Factor)
-        for inner_loop in naive_TM:
-            if inner_loop[1] == 1:
-                LPF_TM.append(inner_loop)
-            else:
-                factors = factorint(inner_loop[1])
-                for factor in factors.items():
-                    for pow in range(factor[1]):
-                        LPF_TM.append((inner_loop[0], factor[0]))
-
-        # Shuffle the LPF_TM to get a random initalization into the design space
-        random.shuffle(LPF_TM)
-
-        print(naive_TM)
-        print(LPF_TM)
-        return
+        return rl_temporal_mapping_optimizer(layer_, layer_post, im2col_layer, layer_rounded, spatial_loop_comb,
+                                             input_settings,
+                                             mem_scheme, ii_su)
 
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
