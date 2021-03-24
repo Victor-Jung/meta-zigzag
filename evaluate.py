@@ -1,26 +1,25 @@
-import copy
-import pickle
-import sys
-import time
-from copy import deepcopy
-from datetime import datetime
-from multiprocessing import Pool, Process, cpu_count
-from pathlib import Path
-
-import numpy as np
-
-import bsg_exh
+import output_funcs as of
+import cost_model_funcs as cmf
 import bsg_ite
 import classes as cls
-import cost_model_funcs as cmf
-import loma_copy as loma
-import msg
-import output_funcs as of
+import sys
+import os
+import numpy as np
+from copy import deepcopy
 from bsgutils import utilization_rate_optimizer, check_mem_ut_after_CM
+import msg
+import pickle
+import copy
+import bsg_exh
+import time
+from multiprocessing import Pool, Process, cpu_count
+from datetime import datetime
+from pathlib import Path
+from itertools import repeat
 from classes.layer_rounding import mem_access_count_correct
 from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
-from reinforcement_learning_algo.optimizer import rl_temporal_mapping_optimizer
+import loma_copy as loma
 
 
 def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_loop_fractional, spatial_loop_comb,
