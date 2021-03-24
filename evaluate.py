@@ -20,6 +20,7 @@ from classes.layer_rounding import mem_access_count_correct
 from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
 import loma_copy as loma
+from reinforcement_learning_algo.optimizer import rl_temporal_mapping_optimizer
 
 
 def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_loop_fractional, spatial_loop_comb,
