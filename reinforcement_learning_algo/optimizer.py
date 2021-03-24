@@ -41,8 +41,7 @@ def randomize_temporal_mapping(tm_primary_factors):
     return tm_primary_factors
 
 
-def initialize_temporal_mapping(layer_post) -> list:
-    temporal_mapping_ordering = form_temporal_mapping_ordering(layer_post)
+def initialize_temporal_mapping(temporal_mapping_ordering) -> list:
     temporal_mapping_pm_ordering = find_tm_primary_factors(temporal_mapping_ordering)
     temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
     print(temporal_mapping_ordering)
@@ -50,16 +49,16 @@ def initialize_temporal_mapping(layer_post) -> list:
     return temporal_mapping_pm_ordering
 
 
-def rl_temporal_mapping_optimizer(layer_, layer_post, im2col_layer, layer_rounded, spatial_loop_comb, input_settings,
-                                  mem_scheme, ii_su):
-    print('--------- Reinforcement Learing Temporal Mapping Optimization ---------')
-
-    temporal_mapping_pm_ordering = initialize_temporal_mapping(layer_post)
+def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_, layer_post, im2col_layer, layer_rounded, spatial_loop_comb,
+                                  input_settings, mem_scheme, ii_su):
+    print('--------- Reinforcement Learning Temporal Mapping Optimization ---------')
+    if temporal_mapping_ordering is None:
+        temporal_mapping_ordering = form_temporal_mapping_ordering(layer_post)
+    temporal_mapping_pm_ordering = initialize_temporal_mapping(temporal_mapping_ordering)
     layer = [im2col_layer, layer_rounded]
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
     energy, utilization = get_temporal_loop_estimation(temporal_mapping_pm_ordering, input_settings, spatial_loop_comb,
                                                        mem_scheme, layer, mac_costs)
     print(f'Energy: {energy}')
     print(f'Utilization: {utilization}')
-    print('\n')
     return
