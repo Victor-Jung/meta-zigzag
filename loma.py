@@ -587,7 +587,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
 
                                 # Merge loops of same type
                                 merged_order = merge_loops(nonmerged_order, smallest_pfs)
-                                
+
                                 # Check if merged order was already processed
                                 hashed = hash(merged_order)
                                 if hashed in merged_set:
@@ -596,7 +596,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                 else:
                                     merged_set.add(hashed)
 
-                                ################################## MEMORY ALLOCATION ##################################
+                                    ################################## MEMORY ALLOCATION ##################################
 
                                 # Initialize Order object
                                 order = Order(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
@@ -682,6 +682,6 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                 #     print(ctr, "Execution time =", time.time()-t_start)
                                 #     t_start = time.time()
 
-    return (min_en, min_en_ut, min_en_order, 
+    return (min_en, min_en_ut, min_en_order,
         max_ut_en, max_ut, max_ut_order,
         energy_collect, utilization_collect, latency_collect)
