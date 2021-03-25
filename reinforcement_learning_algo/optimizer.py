@@ -65,6 +65,7 @@ def initialize_temporal_mapping(temporal_mapping_ordering) -> list:
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_, layer_post, im2col_layer, layer_rounded, spatial_loop_comb,
                                   input_settings, mem_scheme, ii_su):
     print('--------- Reinforcement Learning Temporal Mapping Optimization ---------')
+    
     if temporal_mapping_ordering is None:
         temporal_mapping_ordering = form_temporal_mapping_ordering(layer_post)
     uneven_temporal_mapping_ordering = initialize_temporal_mapping(temporal_mapping_ordering)
@@ -74,6 +75,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_, layer_post,
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
     energy, utilization = get_temporal_loop_estimation(uneven_temporal_mapping_ordering, input_settings, spatial_loop_comb,
                                                        mem_scheme, layer, mac_costs)
+
     print(f'Energy: {energy}')
     print(f'Utilization: {utilization}')
     return

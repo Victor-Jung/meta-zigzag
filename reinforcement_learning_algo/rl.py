@@ -12,6 +12,8 @@ from torch.autograd import Variable
 from torch.distributions import Bernoulli
 from torch.distributions import Categorical
 
+from reinforcement_learning_algo.optimizer import initialize_temporal_mapping, rl_temporal_mapping_optimizer
+
 # Here our network is a MLP (Multi Layer Perceptron)
 class PolicyNetwork(nn.Module):
     """
@@ -33,6 +35,39 @@ class PolicyNetwork(nn.Module):
         x = F.sigmoid(self.fc3(x))
         return x
 
+def encode_temporal_mapping(tm):
+
+    newSeq = []
+
+    for i in tm:
+        enc = i[0]+10**-floor(log10(i[1])+1)*i[1]
+        newSeq.append(enc)
+    return newSeq
+
+
+def pad_temporal_mapping(tm, max_length):
+
+    for i in range(max_length - len(tm)):
+        tm.append(0)
+    return tm
+
+
+def tm_swap(idx1, idx2, tm):
+    temp = tm[idx1]
+    tm[idx1] = tm[idx2]
+    tm[idx2] = temp
+    return tm
+
+
+def step(state, action):
+
+    next_state = tm_swap(action[0], action[1], state)
+
+
+
+    return next_state, reward
+
+
 def training(starting_TM, num_episode, episode_max_step, batch_size, learning_rate, gamma):
 
     # Batch History
@@ -44,19 +79,27 @@ def training(starting_TM, num_episode, episode_max_step, batch_size, learning_ra
     # Here the only way to end an episode is with a counter
     steps = 0
 
-    policy_net = PolicyNetwork()
+    observation_state_length = 30
+    action_state_length = (observation_state_length*(observation_state_length+1))/2
+
+    policy_net = PolicyNetwork(observation_state_lengt, action_state_length)
     optimizer = torch.optim.RMSprop(policy_net.parameters(), lr=learning_rate)
 
     for ep in range(num_episode):
         
         # Init at a random state, equivalent env.reset() with gym
-        state = copy.deepcopy(starting_TM)
-        random.shuffle(state)
+        state = initialize_temporal_mapping(starting_TM)
 
         for time_step in count():
+            
+            # Encode and pad the state to fit in the policy network
+            encoded_state = encode_temporal_mapping(state)
+            encoded_padded_state = pad_temporal_mapping(encoded_state, observation_state_length)
 
-            # Pick a sample in this action space
-            probs = policy_net(state)
+            encoded_padded_state = torch.from_numpy(encoded_padded_state).float()
+            encoded_padded_state = Variable(encoded_padded_state)
+
+            probs = policy_net(encoded_state)
             action_space = Bernoulli(probs)
             action = action_space.sample()
 
