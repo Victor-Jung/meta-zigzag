@@ -1,5 +1,6 @@
 import os
 import copy
+import math
 import random
 import numpy as np
 from itertools import count
@@ -9,151 +10,176 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.distributions import Bernoulli
 from torch.distributions import Categorical
 
-from reinforcement_learning_algo.optimizer import initialize_temporal_mapping, rl_temporal_mapping_optimizer
+from reinforcement_learning_algo.cost_esimator import *
+
+#from reinforcement_learning_algo.optimizer import initialize_temporal_mapping, get_temporal_loop_estimation
 
 # Here our network is a MLP (Multi Layer Perceptron)
-class PolicyNetwork(nn.Module):
+class PolicyGradient:
     """
     Create policy network which takes state featues as input and outputs unnormalized 
     action values.
     """
 
-    def __init__(self, observation_space_length, action_space_length):
-        super(PolicyNetwork, self).__init__()
+    def __init__(self, neural_network, temporal_mapping_ordering, layer_, layer_post, 
+                 im2col_layer, layer_rounded, spatial_loop_comb,input_settings, mem_scheme, ii_su):
 
-        self.action_space_length = action_space_length
-        self.observation_space_length = observation_space_length
-        self.fc1 = nn.Linear(self.state_dim, 256)
-        self.fc2 = nn.Linear(256, self.num_actions)
+        super(PolicyGradient, self).__init__()
 
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.sigmoid(self.fc3(x))
-        return x
+        # Init our policy net
+        self.policy_net = neural_network
 
-def encode_temporal_mapping(tm):
+        # Starting Temporal Mapping
+        self.starting_temporal_mapping = temporal_mapping_ordering
 
-    newSeq = []
-
-    for i in tm:
-        enc = i[0]+10**-floor(log10(i[1])+1)*i[1]
-        newSeq.append(enc)
-    return newSeq
-
-
-def pad_temporal_mapping(tm, max_length):
-
-    for i in range(max_length - len(tm)):
-        tm.append(0)
-    return tm
+        # Cost Estimation Parameters
+        self.layer_ = layer_
+        self.layer_post = layer_post
+        self.im2col_layer = im2col_layer
+        self.layer_rounded = layer_rounded
+        self.spatial_loop_comb = spatial_loop_comb
+        self.input_settings = input_settings
+        self.mem_scheme = mem_scheme
+        self.ii_su = ii_su
+        self.layer = [self.im2col_layer, self.layer_rounded]
+        self.mac_costs = calculate_mac_level_costs(self.layer_, self.layer_rounded, 
+                                                   self.input_settings, self.mem_scheme, self.ii_su)
 
 
-def tm_swap(idx1, idx2, tm):
-    temp = tm[idx1]
-    tm[idx1] = tm[idx2]
-    tm[idx2] = temp
-    return tm
+    def encode_temporal_mapping(self, tm):
+
+        newSeq = []
+        for i in tm:
+            enc = i[0]+10**-math.floor(math.log10(i[1])+1)*i[1]
+            newSeq.append(enc)
+        return newSeq
+
+    def pad_temporal_mapping(self, tm, max_length):
+        for i in range(max_length - len(tm)):
+            tm.append(0)
+        return tm
+
+    def unpad_temporal_mapping(self, tm):
+        unpadded_tm = list(filter(lambda x: x != 0, tm))
+        return unpadded_tm
+
+    def tm_swap(self, idx1, idx2, tm):
+        temp = tm[idx1]
+        tm[idx1] = tm[idx2]
+        tm[idx2] = temp
+        return tm
+
+    def step(self, state, action):
+
+        padded_state = self.pad_temporal_mapping(state, 30)
+        padded_next_state = self.tm_swap(action[0], action[1], padded_state)
+        next_state = self.unpad_temporal_mapping(padded_next_state)
+
+        energy, utilization = get_temporal_loop_estimation(next_state, self.input_settings, self.spatial_loop_comb,
+                                                           self.mem_scheme, self.layer, self.mac_costs)
+
+        reward = 1/(energy/100000000)
+        return next_state, reward
+
+    def action_idx_to_swap(self, action_idx, input_size):
+
+        swap_list = []
+        starting_idx = 1
+        for i in range(input_size):
+            for j in range(starting_idx, input_size):
+                swap_list.append([i, j])
+            starting_idx += 1
+
+        return swap_list[action_idx]
 
 
-def step(state, action):
+    def training(self, starting_TM, num_episode, episode_max_step, batch_size, learning_rate, gamma):
 
-    next_state = tm_swap(action[0], action[1], state)
+        # Batch History
+        state_pool = []
+        action_pool = []
+        reward_pool = []
+        episode_durations = []
 
+        # Here the only way to end an episode is with a counter
+        steps = 0
 
+        self.optimizer = torch.optim.RMSprop(self.policy_net.parameters(), lr=learning_rate)
 
-    return next_state, reward
-
-
-def training(starting_TM, num_episode, episode_max_step, batch_size, learning_rate, gamma):
-
-    # Batch History
-    state_pool = []
-    action_pool = []
-    reward_pool = []
-    episode_durations = []
-
-    # Here the only way to end an episode is with a counter
-    steps = 0
-
-    observation_state_length = 30
-    action_state_length = (observation_state_length*(observation_state_length+1))/2
-
-    policy_net = PolicyNetwork(observation_state_lengt, action_state_length)
-    optimizer = torch.optim.RMSprop(policy_net.parameters(), lr=learning_rate)
-
-    for ep in range(num_episode):
-        
-        # Init at a random state, equivalent env.reset() with gym
-        state = initialize_temporal_mapping(starting_TM)
-
-        for time_step in count():
+        for ep in range(num_episode):
             
-            # Encode and pad the state to fit in the policy network
-            encoded_state = encode_temporal_mapping(state)
-            encoded_padded_state = pad_temporal_mapping(encoded_state, observation_state_length)
+            # Init at a random state, equivalent env.reset() with gym
+            state = copy.deepcopy(starting_TM)
+            random.shuffle(state)
 
-            encoded_padded_state = torch.from_numpy(encoded_padded_state).float()
-            encoded_padded_state = Variable(encoded_padded_state)
+            for time_step in count():
+                
+                # Encode and pad the state to fit in the policy network
+                encoded_state = self.encode_temporal_mapping(state)
+                encoded_padded_state = self.pad_temporal_mapping(encoded_state, 30)
 
-            probs = policy_net(encoded_state)
-            action_space = Bernoulli(probs)
-            action = action_space.sample()
+                encoded_padded_state = torch.from_numpy(np.asarray(encoded_padded_state)).float()
+                encoded_padded_state = Variable(encoded_padded_state)
 
-            # Take a step into the env and get the next state and the reward
-            next_state, reward = [], 42
+                probs = self.policy_net(encoded_padded_state)
+                action_idx = np.random.choice(len(probs), 1, p=probs.detach().numpy())
+                action = self.action_idx_to_swap(action_idx[0], 30)
 
-            # Save for the history
-            state_pool.append(state)
-            action_pool.append(float(action))
-            reward_pool.append(reward)
+                # Take a step into the env and get the next state and the reward
+                next_state, reward = self.step(state, action)
+                print("Reward : ", reward)
 
-            state = next_state
-            steps += 1
+                # Save for the history
+                state_pool.append(encoded_padded_state)
+                action_pool.append(action_idx)
+                reward_pool.append(reward)
 
-            if time_step >= episode_max_step:
-                episode_durations.append(time_step + 1)
-                break
+                state = next_state
+                steps += 1
 
-        # Update Policy
-        if ep > 0 and ep % batch_size == 0:
+                if time_step >= episode_max_step:
+                    episode_durations.append(time_step + 1)
+                    break
 
-            # Compute the discounted return (discounted reward sum)
-            running_add = 0
-            for i in reversed(range(steps)):
-                if reward_pool[i] == 0:
-                    running_add = 0
-                else:
-                    running_add = running_add * gamma + reward_pool[i]
-                    reward_pool[i] = running_add
+            # Update Policy
+            if ep > 0 and ep % batch_size == 0:
 
-            # Normalize reward
-            reward_mean = np.mean(reward_pool)
-            reward_std = np.std(reward_pool)
-            for i in range(steps):
-                reward_pool[i] = (reward_pool[i] - reward_mean) / reward_std
+                # Compute the discounted return (discounted reward sum)
+                running_add = 0
+                for i in reversed(range(steps)):
+                    if reward_pool[i] == 0:
+                        running_add = 0
+                    else:
+                        running_add = running_add * gamma + reward_pool[i]
+                        reward_pool[i] = running_add
 
-            # Gradient Desent
-            optimizer.zero_grad()
+                # Normalize reward
+                reward_mean = np.mean(reward_pool)
+                reward_std = np.std(reward_pool)
+                for i in range(steps):
+                    reward_pool[i] = (reward_pool[i] - reward_mean) / reward_std
 
-            for i in range(steps):
-                state = state_pool[i]
-                action = Variable(torch.FloatTensor([action_pool[i]]))
-                reward = reward_pool[i]
+                # Gradient Desent
+                self.optimizer.zero_grad()
 
-                probs = policy_net(state)
-                m = Bernoulli(probs)
-                # Negtive score function x reward
-                loss = -m.log_prob(action) * reward
-                loss.backward()
+                for i in range(steps):
 
-            optimizer.step()
+                    state = state_pool[i]
+                    action_idx = Variable(torch.FloatTensor([action_pool[i]]))
+                    reward = reward_pool[i]
 
-            state_pool = []
-            action_pool = []
-            reward_pool = []
-            steps = 0
+                    probs = self.policy_net(state)
+                    m = Categorical(probs)
+                    # Negtive score function x reward
+                    loss = -m.log_prob(action_idx) * reward
+                    loss.backward()
+
+                self.optimizer.step()
+
+                state_pool = []
+                action_pool = []
+                reward_pool = []
+                steps = 0
         
