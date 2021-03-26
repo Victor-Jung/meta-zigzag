@@ -12,12 +12,10 @@ from torch.utils.tensorboard import SummaryWriter
 from reinforcement_learning_algo.cost_esimator import *
 
 
-# from reinforcement_learning_algo.optimizer import initialize_temporal_mapping, get_temporal_loop_estimation
-
 # Here our network is a MLP (Multi Layer Perceptron)
 class PolicyGradient:
     """
-    Create policy network which takes state featues as input and outputs unnormalized 
+    Create policy network which takes state featues as input and outputs unnormalized
     action values.
     """
 
@@ -48,7 +46,8 @@ class PolicyGradient:
     def encode_temporal_mapping(self, temporal_mapping):
         encoded_temporal_mapping = []
         for loop_type, loop_weight in temporal_mapping:
-            encoded_value = loop_type + 10 ** -math.floor(math.log10(loop_weight) + 1) * loop_weight
+            encoded_value = loop_type + 10 ** - \
+                math.floor(math.log10(loop_weight) + 1) * loop_weight
             encoded_temporal_mapping.append(encoded_value)
         return encoded_temporal_mapping
 
@@ -75,7 +74,7 @@ class PolicyGradient:
         energy, utilization = get_temporal_loop_estimation(next_state, self.input_settings, self.spatial_loop_comb,
                                                            self.mem_scheme, self.layer, self.mac_costs)
 
-        reward = 1 / (energy / 10 ** 8)
+        reward = 1 / (energy / 10 ** 12)
         return next_state, reward
 
     def generate_swap_list(self, input_size):
@@ -89,25 +88,31 @@ class PolicyGradient:
 
     def make_encoded_state_vector(self, state, max_input_size):
         encoded_state = self.encode_temporal_mapping(state)
-        encoded_padded_state = self.pad_temporal_mapping(encoded_state, max_input_size)
-        encoded_padded_state = torch.from_numpy(np.asarray(encoded_padded_state)).float()
+        encoded_padded_state = self.pad_temporal_mapping(
+            encoded_state, max_input_size)
+        encoded_padded_state = torch.from_numpy(
+            np.asarray(encoded_padded_state)).float()
         encoded_padded_state = Variable(encoded_padded_state)
         return encoded_padded_state
 
     def get_action(self, probability_vector):
-        action_idx = np.random.choice(len(probability_vector), 1, p=probability_vector.detach().numpy())[0]
+        action_idx = np.random.choice(
+            len(probability_vector), 1, p=probability_vector.detach().numpy())[0]
         action = self.swap_list[action_idx]
         return action_idx, action
 
-    def compute_discounted_reward(self, reward_pool, steps, gamma):
-        running_add = 0
-        for i in reversed(range(steps)):
-            if reward_pool[i] == 0:
-                running_add = 0
-            else:
-                running_add = running_add * gamma + reward_pool[i]
-                reward_pool[i] = running_add
-        return reward_pool
+    def compute_discounted_rewards(self, reward_pool, steps, gamma):
+        discounted_returns = []
+        for t in range(steps):
+            discounted_return = 0
+            gamma_power = 0
+            for r in reward_pool[t:]:
+                discounted_return = discounted_return + \
+                    reward_pool[t] * (gamma ** gamma_power)
+                gamma_power += 1
+            discounted_returns.append(discounted_return)
+
+        return discounted_returns
 
     def normalize_reward(self, reward_pool, steps):
         reward_mean = np.mean(reward_pool)
@@ -117,25 +122,23 @@ class PolicyGradient:
 
         return reward_pool
 
-    def optimize(self, writer, episode, steps, state_pool, action_pool, reward_pool):
-        self.optimizer.zero_grad()
-        running_loss = 0
-        for step in range(steps):
-            state = state_pool[step]
-            action_idx = Variable(torch.FloatTensor([action_pool[step]]))
-            reward = reward_pool[step]
 
-            probability_vector = self.policy_net(state)
-            m = Categorical(probability_vector)
-            # Negtive score function x reward
-            loss = -m.log_prob(action_idx) * reward
-            loss.backward()
-            running_loss += loss.item()
-            self.optimizer.step()
-            iteration = (episode - 1) * steps + step
-            print(f"Iteration{iteration} — Step {step} Training loss: {running_loss / steps}")
-            writer.add_scalar("loss x epoch", loss.item(), iteration)
-        return
+    def optimize(self, writer, episode, steps, reward_pool, log_probability_list):
+
+        loss_list = []
+        # Gt is the symbol for the return (ie : the sum of discounted rewards)
+        for log_prob, Gt in zip(log_probability_list, reward_pool):
+            loss = -log_prob * Gt
+            loss_list.append(loss)
+
+        loss = torch.stack(loss_list).sum()
+        loss.backward()
+        self.optimizer.zero_grad()
+        self.optimizer.step()
+        iteration = (episode - 1) * steps
+        print(f"Iteration{iteration} — Training loss: {loss.item()}")
+        writer.add_scalar("loss x epoch", loss.item(), iteration)
+
 
     def training(self, starting_tm, num_episode, episode_max_step, batch_size, learning_rate, gamma):
         writer = SummaryWriter()
@@ -143,6 +146,7 @@ class PolicyGradient:
         state_pool = []
         action_pool = []
         reward_pool = []
+        log_probability_list = []
         episode_durations = []
 
         # Here the only way to end an episode is with a counter
@@ -164,6 +168,7 @@ class PolicyGradient:
                 encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)
                 probability_vector = self.policy_net(encoded_padded_state)
                 action_idx, action = self.get_action(probability_vector)
+                log_probability_list.append(torch.log(probability_vector.squeeze(0)[action_idx]))
 
                 # Take a step into the env and get the next state and the reward
                 next_state, reward = self.step(state, action)
@@ -177,21 +182,43 @@ class PolicyGradient:
                 state = next_state
                 steps += 1
 
-                if time_step >= episode_max_step:
+                if time_step >= episode_max_step - 1:
                     episode_durations.append(time_step + 1)
                     break
 
             # Update Policy
-            if episode > 0 and episode % batch_size == 0:
-                # Compute the discounted return (discounted reward sum)
-                reward_pool = self.compute_discounted_reward(reward_pool, steps, gamma)
+            if episode % batch_size == 0:
+                # Compute the discount ed return (discounted reward sum)
+                reward_pool = self.compute_discounted_rewards(reward_pool, steps, gamma)
                 # Normalize reward
                 reward_pool = self.normalize_reward(reward_pool, steps)
                 # Gradient Desent
-                self.optimize(writer, episode, steps, state_pool, action_pool, reward_pool)
+                self.optimize(writer, episode, steps, reward_pool, log_probability_list)
                 state_pool = []
                 action_pool = []
                 reward_pool = []
+                log_probability_list = []
                 steps = 0
 
         writer.close()
+        
+    def run_episode(self, starting_temporal_mapping, episode_max_step):
+
+        state = starting_temporal_mapping
+
+        for time_step in count():
+
+            # Encode and pad the state to fit in the policy network
+            encoded_padded_state = self.make_encoded_state_vector(state, 30)
+            probability_vector = self.policy_net(encoded_padded_state)
+            action_idx, action = self.get_action(probability_vector)
+
+            # Take a step into the env and get the next state and the reward
+            next_state, reward = self.step(state, action)
+            # print("Reward : ", reward)
+            state = next_state
+
+            if time_step >= episode_max_step - 1:
+                break
+        
+        return state

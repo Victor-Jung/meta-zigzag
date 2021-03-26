@@ -99,8 +99,11 @@ def rl_temporal_mapping_optimizer(
         neural_network, temporal_mapping_pf_ordering, layer_, layer_post,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su)
 
-    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=15, episode_max_step=40,
-                             batch_size=1, learning_rate=0.5, gamma=1)
+    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=100, episode_max_step=10,
+                             batch_size=1, learning_rate=0.5, gamma=0.9)
+
+    temporal_mapping_pf_ordering = policy_gradient.run_episode(starting_temporal_mapping=temporal_mapping_pf_ordering, 
+                                                                episode_max_step=100)
 
     layer = [im2col_layer, layer_rounded]
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
@@ -113,6 +116,6 @@ def rl_temporal_mapping_optimizer(
         mac_costs,
     )
 
-    print(f"Energy: {energy/100000000}")
+    print(f"Energy: {energy/10 ** 12}")
     print(f"Utilization: {utilization}")
     return energy, utilization
