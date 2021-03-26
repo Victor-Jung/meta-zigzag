@@ -2,17 +2,15 @@ import random
 
 from sympy.ntheory import factorint
 
-from reinforcement_learning_algo.rl import (
-    PolicyGradient,
-)
-
 from reinforcement_learning_algo.cost_esimator import (
     get_temporal_loop_estimation,
     calculate_mac_level_costs,
 )
-
 from reinforcement_learning_algo.neural_networks.mlp import (
     MLP,
+)
+from reinforcement_learning_algo.rl import (
+    PolicyGradient,
 )
 
 loop_types_list = ["FX", "FY", "OX", "OY", "C", "K", "B"]
@@ -100,7 +98,9 @@ def rl_temporal_mapping_optimizer(
     policy_gradient = PolicyGradient(
         neural_network, temporal_mapping_pf_ordering, layer_, layer_post,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su)
-    policy_gradient.training(temporal_mapping_pf_ordering, 15, 40, 1, 0.5, 1)
+
+    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=15, episode_max_step=40,
+                             batch_size=1, learning_rate=0.5, gamma=1)
 
     layer = [im2col_layer, layer_rounded]
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
