@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 from torch.distributions import Categorical
+from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning_algo.cost_esimator import *
 
@@ -116,24 +117,28 @@ class PolicyGradient:
 
         return reward_pool
 
-    def optimize(self, steps, state_pool, action_pool, reward_pool):
+    def optimize(self, writer, episode, steps, state_pool, action_pool, reward_pool):
         self.optimizer.zero_grad()
-
-        for i in range(steps):
-            state = state_pool[i]
-            action_idx = Variable(torch.FloatTensor([action_pool[i]]))
-            reward = reward_pool[i]
+        running_loss = 0
+        for step in range(steps):
+            state = state_pool[step]
+            action_idx = Variable(torch.FloatTensor([action_pool[step]]))
+            reward = reward_pool[step]
 
             probability_vector = self.policy_net(state)
             m = Categorical(probability_vector)
             # Negtive score function x reward
             loss = -m.log_prob(action_idx) * reward
             loss.backward()
-
-        self.optimizer.step()
+            running_loss += loss.item()
+            self.optimizer.step()
+            iteration = (episode - 1) * steps + step
+            print(f"Iteration{iteration} — Step {step} Training loss: {running_loss / steps}")
+            writer.add_scalar("loss x epoch", loss.item(), iteration)
+        return
 
     def training(self, starting_tm, num_episode, episode_max_step, batch_size, learning_rate, gamma):
-
+        writer = SummaryWriter()
         # Batch History
         state_pool = []
         action_pool = []
@@ -162,7 +167,7 @@ class PolicyGradient:
 
                 # Take a step into the env and get the next state and the reward
                 next_state, reward = self.step(state, action)
-                print("Reward : ", reward)
+                print(f"Episode: {episode}, Step: {time_step}, Reward: {reward}")
 
                 # Save for the history
                 state_pool.append(encoded_padded_state)
@@ -183,9 +188,10 @@ class PolicyGradient:
                 # Normalize reward
                 reward_pool = self.normalize_reward(reward_pool, steps)
                 # Gradient Desent
-                self.optimize(steps, state_pool, action_pool, reward_pool)
-
+                self.optimize(writer, episode, steps, state_pool, action_pool, reward_pool)
                 state_pool = []
                 action_pool = []
                 reward_pool = []
                 steps = 0
+
+        writer.close()
