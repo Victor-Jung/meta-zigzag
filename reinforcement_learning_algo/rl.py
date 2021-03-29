@@ -66,7 +66,7 @@ class PolicyGradient:
         tm[idx2] = temp
         return tm
 
-    def step(self, state, action, max_input_size=30):
+    def step(self, state, action, energy_pool, time_step, max_input_size=30):
 
         padded_state = self.pad_temporal_mapping(state, max_input_size)
         padded_next_state = self.tm_swap(action[0], action[1], padded_state)
@@ -74,7 +74,19 @@ class PolicyGradient:
         energy, utilization = get_temporal_loop_estimation(next_state, self.input_settings, self.spatial_loop_comb,
                                                            self.mem_scheme, self.layer, self.mac_costs)
 
-        reward = 1 / (energy / 10 ** 12)
+        '''if time_step == 0:
+            previous_energy = 0
+        else:
+            previous_energy = energy_pool[-1]
+        energy_pool.append(energy)
+
+        if energy - previous_energy > 0:
+            reward = 1
+        else:
+            reward = 0'''
+
+        reward = 1/(energy/(10**12))
+
         return next_state, reward
 
     def generate_swap_list(self, input_size):
@@ -118,10 +130,12 @@ class PolicyGradient:
         reward_mean = np.mean(reward_pool)
         reward_std = np.std(reward_pool)
         for i in range(steps):
-            reward_pool[i] = (reward_pool[i] - reward_mean) / reward_std
+            if reward_std != 0:
+                reward_pool[i] = (reward_pool[i] - reward_mean) / reward_std
+            else:
+                reward_pool[i] = (reward_pool[i] - reward_mean)
 
         return reward_pool
-
 
     def optimize(self, writer, episode, steps, reward_pool, log_probability_list):
 
@@ -141,11 +155,14 @@ class PolicyGradient:
 
 
     def training(self, starting_tm, num_episode, episode_max_step, batch_size, learning_rate, gamma):
+
         writer = SummaryWriter()
+
         # Batch History
         state_pool = []
         action_pool = []
         reward_pool = []
+        energy_pool = []
         log_probability_list = []
         episode_durations = []
 
@@ -153,14 +170,14 @@ class PolicyGradient:
         steps = 0
         input_size = len(starting_tm)
         max_input_size = 30
-        self.optimizer = torch.optim.RMSprop(self.policy_net.parameters(), lr=learning_rate)
+        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         self.swap_list = self.generate_swap_list(max_input_size)
 
         for episode in range(num_episode):
 
             # Init at a random state, equivalent env.reset() with gym
             state = copy.deepcopy(starting_tm)
-            random.shuffle(state)
+            #random.shuffle(state)
 
             for time_step in count():
 
@@ -168,11 +185,15 @@ class PolicyGradient:
                 encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)
                 probability_vector = self.policy_net(encoded_padded_state)
                 action_idx, action = self.get_action(probability_vector)
-                log_probability_list.append(torch.log(probability_vector.squeeze(0)[action_idx]))
+
+                m = Categorical(probability_vector)
+                action_sample = m.sample()
+                log_probability_list.append(m.log_prob(action_sample))
+                #log_probability_list.append(torch.log(probability_vector.squeeze(0)[action_idx]))
 
                 # Take a step into the env and get the next state and the reward
-                next_state, reward = self.step(state, action)
-                print(f"Episode: {episode}, Step: {time_step}, Reward: {reward}")
+
+                next_state, reward = self.step(state, action, energy_pool, time_step)
 
                 # Save for the history
                 state_pool.append(encoded_padded_state)
@@ -184,6 +205,8 @@ class PolicyGradient:
 
                 if time_step >= episode_max_step - 1:
                     episode_durations.append(time_step + 1)
+                    print(f"Episode: {episode} Average Reward: {np.mean(reward_pool)}")
+                    writer.add_scalar("Reward x epoch", np.mean(reward_pool), episode)
                     break
 
             # Update Policy
@@ -205,6 +228,7 @@ class PolicyGradient:
     def run_episode(self, starting_temporal_mapping, episode_max_step):
 
         state = starting_temporal_mapping
+        energy_pool = []
 
         for time_step in count():
 
@@ -214,7 +238,7 @@ class PolicyGradient:
             action_idx, action = self.get_action(probability_vector)
 
             # Take a step into the env and get the next state and the reward
-            next_state, reward = self.step(state, action)
+            next_state, reward = self.step(state, action, energy_pool, time_step)
             # print("Reward : ", reward)
             state = next_state
 

@@ -11,8 +11,8 @@ class MLP(nn.Module):
 
         self.action_space_length = action_space_length
         self.observation_space_length = observation_space_length
-        self.fc1 = nn.Linear(self.observation_space_length, 256)
-        self.fc2 = nn.Linear(256, self.action_space_length)
+        self.fc1 = nn.Linear(self.observation_space_length, 420)
+        self.fc2 = nn.Linear(420, self.action_space_length)
         self.fc3 = nn.Linear(self.action_space_length, self.action_space_length)
 
     def forward(self, x):

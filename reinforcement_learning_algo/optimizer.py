@@ -38,7 +38,7 @@ def pf_to_compressed_mapping(pf_temporal_mapping):
         if pf_temporal_mapping[i][0] == compressed_temporal_mapping[-1][0]:
             compressed_temporal_mapping[-1] = (
                 pf_temporal_mapping[i][0],
-                pf_temporal_mapping[i][1] + compressed_temporal_mapping[-1][1],
+                pf_temporal_mapping[i][1] * compressed_temporal_mapping[-1][1],
             )
         else:
             compressed_temporal_mapping.append(pf_temporal_mapping[i])
@@ -99,16 +99,18 @@ def rl_temporal_mapping_optimizer(
         neural_network, temporal_mapping_pf_ordering, layer_, layer_post,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su)
 
-    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=100, episode_max_step=10,
-                             batch_size=1, learning_rate=0.5, gamma=0.9)
+    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=100, episode_max_step=15,
+                             batch_size=1, learning_rate=0.7, gamma=0.99)
 
     temporal_mapping_pf_ordering = policy_gradient.run_episode(starting_temporal_mapping=temporal_mapping_pf_ordering, 
-                                                                episode_max_step=100)
+                                                                episode_max_step=10)
+
+    temporal_mapping_compressed_ordering = pf_to_compressed_mapping(temporal_mapping_pf_ordering)
 
     layer = [im2col_layer, layer_rounded]
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
     energy, utilization = get_temporal_loop_estimation(
-        temporal_mapping_pf_ordering,
+        temporal_mapping_compressed_ordering,
         input_settings,
         spatial_loop_comb,
         mem_scheme,
