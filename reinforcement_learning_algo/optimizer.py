@@ -70,23 +70,17 @@ def randomize_temporal_mapping(tm_primary_factors):
 def initialize_temporal_mapping(temporal_mapping_ordering) -> list:
     temporal_mapping_pm_ordering = find_tm_primary_factors(temporal_mapping_ordering)
     temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
+    temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
+    temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
     #print(temporal_mapping_ordering)
     #print(temporal_mapping_pm_ordering)
     return temporal_mapping_pm_ordering
 
-
-def evaluate_random_temporal_mapping_performances(
-    temporal_mapping_ordering,
-    max_step,
-    layer_,
-    layer_post,
-    im2col_layer,
-    layer_rounded,
-    spatial_loop_comb,
-    input_settings,
-    mem_scheme,
-    ii_su,
-):  
+# Evaluate the baseline performances (energy and utilization) of a given temporal mapping by generating n = max_step
+# random mapping and averaging the result
+def temporal_mapping_baseline_performances(temporal_mapping_ordering, max_step,layer_, layer_post, im2col_layer,
+                                            layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su):  
+    
     energy_list = []
     utilization_list = []
 
@@ -117,17 +111,9 @@ def evaluate_random_temporal_mapping_performances(
     return np.mean(energy_list)/(10**12), np.mean(utilization_list)
 
 
-def rl_temporal_mapping_optimizer(
-    temporal_mapping_ordering,
-    layer_,
-    layer_post,
-    im2col_layer,
-    layer_rounded,
-    spatial_loop_comb,
-    input_settings,
-    mem_scheme,
-    ii_su,
-):
+def rl_temporal_mapping_optimizer( temporal_mapping_ordering, layer_, layer_post, im2col_layer, layer_rounded,
+                                    spatial_loop_comb, input_settings, mem_scheme, ii_su):
+    
     print("--------- Reinforcement Learning Temporal Mapping Optimization ---------")
 
     if temporal_mapping_ordering is None:
@@ -138,18 +124,8 @@ def rl_temporal_mapping_optimizer(
     action_state_length = int((observation_state_length*(observation_state_length-1))/2)
     neural_network = MLP(observation_state_length, action_state_length)
 
-    print(evaluate_random_temporal_mapping_performances(
-        temporal_mapping_ordering,
-        100,
-        layer_,
-        layer_post,
-        im2col_layer,
-        layer_rounded,
-        spatial_loop_comb,
-        input_settings,
-        mem_scheme,
-        ii_su,
-    ))
+    print(temporal_mapping_baseline_performances( temporal_mapping_ordering, 100, layer_, layer_post, im2col_layer,
+                                                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su))
 
     policy_gradient = PolicyGradient(
         neural_network, temporal_mapping_pf_ordering, layer_, layer_post,
@@ -165,15 +141,10 @@ def rl_temporal_mapping_optimizer(
 
     layer = [im2col_layer, layer_rounded]
     mac_costs = calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su)
-    energy, utilization = get_temporal_loop_estimation(
-        temporal_mapping_compressed_ordering,
-        input_settings,
-        spatial_loop_comb,
-        mem_scheme,
-        layer,
-        mac_costs,
-    )
+    energy, utilization = get_temporal_loop_estimation( temporal_mapping_compressed_ordering, input_settings, spatial_loop_comb,
+                                                        mem_scheme, layer, mac_costs,)
 
     print(f"Energy: {energy/10 ** 12}")
     print(f"Utilization: {utilization}")
+    
     return energy, utilization
