@@ -137,7 +137,7 @@ class PolicyGradient:
 
         return reward_pool
 
-    def optimize(self, writer, episode, steps, reward_pool, log_probability_list):
+    def optimize(self, writer, episode, steps, reward_pool, log_probability_list, verbose=0):
 
         loss_list = []
         # Gt is the symbol for the return (ie : the sum of discounted rewards)
@@ -150,11 +150,13 @@ class PolicyGradient:
         self.optimizer.zero_grad()
         self.optimizer.step()
         iteration = (episode - 1) * steps
-        print(f"Iteration{iteration} — Training loss: {loss.item()}")
         writer.add_scalar("loss x epoch", loss.item(), iteration)
 
+        if verbose == 1:
+            print(f"Iteration {iteration} — Training loss: {loss.item()}")
 
-    def training(self, starting_tm, num_episode, episode_max_step, batch_size, learning_rate, gamma):
+
+    def training(self, starting_tm, num_episode, episode_max_step, batch_size=1, learning_rate=0.1, gamma=1, verbose=0):
 
         writer = SummaryWriter()
 
@@ -205,7 +207,10 @@ class PolicyGradient:
 
                 if time_step >= episode_max_step - 1:
                     episode_durations.append(time_step + 1)
-                    print(f"Episode: {episode} Average Reward: {np.mean(reward_pool)}")
+
+                    if verbose == 1:
+                        print(f"Episode: {episode} Average Reward: {np.mean(reward_pool)}")
+
                     writer.add_scalar("Reward x epoch", np.mean(reward_pool), episode)
                     break
 
@@ -216,7 +221,8 @@ class PolicyGradient:
                 # Normalize reward
                 reward_pool = self.normalize_reward(reward_pool, steps)
                 # Gradient Desent
-                self.optimize(writer, episode, steps, reward_pool, log_probability_list)
+                self.optimize(writer, episode, steps, reward_pool, log_probability_list, verbose)
+
                 state_pool = []
                 action_pool = []
                 reward_pool = []

@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 from sympy.ntheory import factorint
 
@@ -69,9 +70,51 @@ def randomize_temporal_mapping(tm_primary_factors):
 def initialize_temporal_mapping(temporal_mapping_ordering) -> list:
     temporal_mapping_pm_ordering = find_tm_primary_factors(temporal_mapping_ordering)
     temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
-    print(temporal_mapping_ordering)
-    print(temporal_mapping_pm_ordering)
+    #print(temporal_mapping_ordering)
+    #print(temporal_mapping_pm_ordering)
     return temporal_mapping_pm_ordering
+
+
+def evaluate_random_temporal_mapping_performances(
+    temporal_mapping_ordering,
+    max_step,
+    layer_,
+    layer_post,
+    im2col_layer,
+    layer_rounded,
+    spatial_loop_comb,
+    input_settings,
+    mem_scheme,
+    ii_su,
+):  
+    energy_list = []
+    utilization_list = []
+
+    if temporal_mapping_ordering is None:
+        temporal_mapping_ordering = form_temporal_mapping_ordering(layer_post)
+
+    temporal_mapping_pf_ordering = initialize_temporal_mapping(temporal_mapping_ordering)
+
+    for i in range(max_step):
+
+        temporal_mapping_pf_ordering = randomize_temporal_mapping(temporal_mapping_pf_ordering)
+
+        layer = [im2col_layer, layer_rounded]
+        mac_costs = calculate_mac_level_costs(
+            layer_, layer_rounded, input_settings, mem_scheme, ii_su)
+        energy, utilization = get_temporal_loop_estimation(
+            temporal_mapping_pf_ordering,
+            input_settings,
+            spatial_loop_comb,
+            mem_scheme,
+            layer,
+            mac_costs,
+        )
+
+        energy_list.append(energy)
+        utilization_list.append(utilization)
+
+    return np.mean(energy_list)/(10**12), np.mean(utilization_list)
 
 
 def rl_temporal_mapping_optimizer(
@@ -95,12 +138,25 @@ def rl_temporal_mapping_optimizer(
     action_state_length = int((observation_state_length*(observation_state_length-1))/2)
     neural_network = MLP(observation_state_length, action_state_length)
 
+    print(evaluate_random_temporal_mapping_performances(
+        temporal_mapping_ordering,
+        100,
+        layer_,
+        layer_post,
+        im2col_layer,
+        layer_rounded,
+        spatial_loop_comb,
+        input_settings,
+        mem_scheme,
+        ii_su,
+    ))
+
     policy_gradient = PolicyGradient(
         neural_network, temporal_mapping_pf_ordering, layer_, layer_post,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su)
 
-    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=100, episode_max_step=15,
-                             batch_size=1, learning_rate=0.7, gamma=0.99)
+    policy_gradient.training(starting_tm=temporal_mapping_pf_ordering, num_episode=100, episode_max_step=30,
+                             batch_size=1, learning_rate=0.7, gamma=0.99, verbose=0)
 
     temporal_mapping_pf_ordering = policy_gradient.run_episode(starting_temporal_mapping=temporal_mapping_pf_ordering, 
                                                                 episode_max_step=10)
