@@ -2,6 +2,7 @@ import copy
 import math
 import random
 from itertools import count
+from reinforcement_learning_algo.swap import getBadTranspo as getUselessSwap
 
 import numpy as np
 import torch
@@ -90,13 +91,18 @@ class PolicyGradient:
         return next_state, reward
 
     def generate_swap_list(self, input_size):
-        swap_list = []
-        starting_idx = 1
+        ensembleTn = []
         for i in range(input_size):
-            for j in range(starting_idx, input_size):
-                swap_list.append([i, j])
-            starting_idx += 1
-        return swap_list
+            for j in range(i+1, input_size):
+                ensembleTn += [(i, j)]
+        return ensembleTn
+        # swap_list = []
+        # starting_idx = 1
+        # for i in range(input_size):
+        #     for j in range(starting_idx, input_size):
+        #         swap_list.append([i, j])
+        #     starting_idx += 1
+        # return swap_list
 
     def make_encoded_state_vector(self, state, max_input_size):
         encoded_state = self.encode_temporal_mapping(state)
@@ -175,19 +181,47 @@ class PolicyGradient:
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         self.swap_list = self.generate_swap_list(max_input_size)
 
+        
+        
+
+        def normalizeProba(probaList):
+            '''Normalize Probability with a litlle Bias'''
+            total = sum(probaList) + len(probaList)
+            for i in range(len(probaList)):
+                probaList[i] = (probaList[i] + 1)/total
+        
+        def cleanProba(probability_vector, uselessSwapIndex):
+            ''' Require normalizeProba'''
+
+            probability_vector = probability_vector.tolist()
+            for index in uselessSwapIndex:
+                probability_vector[index] = 0
+            normalizeProba(probability_vector)
+            probability_vector = torch.tensor(probability_vector, requires_grad = True)
+        
+        def getUselessSwapIndex(state):
+            uselessSwap = getUselessSwap(state)
+            uselessSwapIndex = []
+            for i in uselessSwap:
+                uselessSwapIndex += [self.swap_list.index(i)]
+            return uselessSwapIndex
+
         for episode in range(num_episode):
 
             # Init at a random state, equivalent env.reset() with gym
             state = copy.deepcopy(starting_tm)
             #random.shuffle(state)
-
             for time_step in count():
-
+                
                 # Encode and pad the state to fit in the policy network
-                encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)
+                encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)                
                 probability_vector = self.policy_net(encoded_padded_state)
-                action_idx, action = self.get_action(probability_vector)
+                 
+                uselessSwapIndex = getUselessSwapIndex(state)
+                cleanProba(probability_vector, uselessSwapIndex)
 
+                action_idx, action = self.get_action(probability_vector)
+               
                 m = Categorical(probability_vector)
                 action_sample = m.sample()
                 log_probability_list.append(m.log_prob(action_sample))

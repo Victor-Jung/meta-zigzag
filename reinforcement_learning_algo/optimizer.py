@@ -119,7 +119,6 @@ def rl_temporal_mapping_optimizer( temporal_mapping_ordering, layer_, layer_post
     if temporal_mapping_ordering is None:
         temporal_mapping_ordering = form_temporal_mapping_ordering(layer_post)
     temporal_mapping_pf_ordering = initialize_temporal_mapping(temporal_mapping_ordering)
-
     observation_state_length = 30
     action_state_length = int((observation_state_length*(observation_state_length-1))/2)
     neural_network = MLP(observation_state_length, action_state_length)
