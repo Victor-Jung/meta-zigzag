@@ -2,7 +2,6 @@ import copy
 import math
 import random
 from itertools import count
-from reinforcement_learning_algo.swap import getBadTranspo as getUselessSwap
 
 import numpy as np
 import torch
@@ -32,6 +31,7 @@ class PolicyGradient:
         self.starting_temporal_mapping = temporal_mapping_ordering
 
         # Cost Estimation Parameters
+        self.loss = 0
         self.layer_ = layer_
         self.layer_post = layer_post
         self.im2col_layer = im2col_layer
@@ -75,25 +75,31 @@ class PolicyGradient:
         energy, utilization = get_temporal_loop_estimation(next_state, self.input_settings, self.spatial_loop_comb,
                                                            self.mem_scheme, self.layer, self.mac_costs)
 
-        '''if time_step == 0:
-            previous_energy = 0
-        else:
-            previous_energy = energy_pool[-1]
+        # if time_step == 0:
+        #     previous_energy = 0
+        # else:
+        #     previous_energy = energy_pool[-1]
+        previous_energy = energy_pool[-1] if len(energy_pool) > 0 else energy - 1
         energy_pool.append(energy)
 
-        if energy - previous_energy > 0:
-            reward = 1
-        else:
-            reward = 0'''
-
-        reward = 1/(energy/(10**12))
-
+        # if energy - previous_energy > 0:
+        #     reward = 1
+        # else:
+        #     reward = 0
+        # energy = utilization
+        reward = utilization
+        # reward = 1 / (energy / (10 ** 12))
+        #
+        # last_energy = energy_pool[-1] if len(energy_pool) > 0 else energy-1
+        # reward = (last_energy - energy) ** 2 / 10 ** 20
+        # print(f"Energy pool {last_energy} energy {energy}, reward {reward}")
+        # energy_pool.append(energy)
         return next_state, reward
 
     def generate_swap_list(self, input_size):
         ensembleTn = []
         for i in range(input_size):
-            for j in range(i+1, input_size):
+            for j in range(i + 1, input_size):
                 ensembleTn += [(i, j)]
         return ensembleTn
         # swap_list = []
@@ -126,10 +132,15 @@ class PolicyGradient:
             gamma_power = 0
             for r in reward_pool[t:]:
                 discounted_return = discounted_return + \
-                    reward_pool[t] * (gamma ** gamma_power)
+                                    reward_pool[t] * (gamma ** gamma_power)
                 gamma_power += 1
             discounted_returns.append(discounted_return)
 
+        discounted_returns = torch.tensor(discounted_returns)
+        # print(discounted_returns)
+        #
+        # if True:
+        #     discounted_returns = (discounted_returns - discounted_returns.mean()) / discounted_returns.std()
         return discounted_returns
 
     def normalize_reward(self, reward_pool, steps):
@@ -147,32 +158,39 @@ class PolicyGradient:
 
         loss_list = []
         # Gt is the symbol for the return (ie : the sum of discounted rewards)
-        for log_prob, Gt in zip(log_probability_list, reward_pool):
-            loss = -log_prob * Gt
-            loss_list.append(loss)
-
-        loss = torch.stack(loss_list).sum()
-        loss.backward()
+        s = 0
+        # for log_prob, Gt in zip(log_probability_list, reward_pool):
+        #     loss = -log_prob * Gt
+        #     loss_list.append(loss)
+        # s +=1
+        # iteration = (episode-1) * (steps) + s
+        # writer.add_scalar("loss x epoch", loss, iteration)
+        # reward_pool = reward_pool.detach()
+        self.loss = -(reward_pool * log_probability_list).sum()
         self.optimizer.zero_grad()
+        # self.loss = torch.stack(loss_list)
+        # print(f"Loss : {self.loss}  {self.loss.sum()} ")
+        # self.loss = self.loss.sum()
+        self.loss.backward()
         self.optimizer.step()
-        iteration = (episode - 1) * steps
-        writer.add_scalar("loss x epoch", loss.item(), iteration)
+        iteration = (episode) * steps + 1
+        print(f"iterdation {iteration}")
+        writer.add_scalar("loss x epoch", self.loss.item(), iteration)
 
         if verbose == 1:
-            print(f"Iteration {iteration} — Training loss: {loss.item()}")
-
+            print(f"Iteration {iteration} — Training loss: {self.loss.item()}")
 
     def training(self, starting_tm, num_episode, episode_max_step, batch_size=1, learning_rate=0.1, gamma=1, verbose=0):
 
         writer = SummaryWriter()
 
-        # Batch History
-        state_pool = []
-        action_pool = []
-        reward_pool = []
-        energy_pool = []
-        log_probability_list = []
-        episode_durations = []
+        # # Batch History
+        # state_pool = []
+        # action_pool = []
+        # reward_pool = []
+        # energy_pool = []
+        # log_probability_list = []
+        # episode_durations = []
 
         # Here the only way to end an episode is with a counter
         steps = 0
@@ -181,51 +199,68 @@ class PolicyGradient:
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         self.swap_list = self.generate_swap_list(max_input_size)
 
-        
-        
-
-        def normalizeProba(probaList):
-            '''Normalize Probability with a litlle Bias'''
-            total = sum(probaList) + len(probaList)
-            for i in range(len(probaList)):
-                probaList[i] = (probaList[i] + 1)/total
-        
-        def cleanProba(probability_vector, uselessSwapIndex):
-            ''' Require normalizeProba'''
-
-            probability_vector = probability_vector.tolist()
-            for index in uselessSwapIndex:
-                probability_vector[index] = 0
-            normalizeProba(probability_vector)
-            probability_vector = torch.tensor(probability_vector, requires_grad = True)
-        
-        def getUselessSwapIndex(state):
-            uselessSwap = getUselessSwap(state)
-            uselessSwapIndex = []
-            for i in uselessSwap:
-                uselessSwapIndex += [self.swap_list.index(i)]
-            return uselessSwapIndex
+        # def normalizeProba(probaList):
+        #     '''Normalize Probability with a litlle Bias'''
+        #     total = sum(probaList) + len(probaList)
+        #     for i in range(len(probaList)):
+        #         probaList[i] = (probaList[i] + 1) / total
+        #
+        # def cleanProba(probability_vector, uselessSwapIndex):
+        #     ''' Require normalizeProba'''
+        #
+        #     probability_vector = probability_vector.tolist()
+        #     for index in uselessSwapIndex:
+        #         probability_vector[index] = 0
+        #     normalizeProba(probability_vector)
+        #     probability_vector = torch.tensor(probability_vector, requires_grad=True)
+        #
+        # def getUselessSwapIndex(state):
+        #     uselessSwap = getUselessSwap(state)
+        #     uselessSwapIndex = []
+        #     for i in uselessSwap:
+        #         uselessSwapIndex += [self.swap_list.index(i)]
+        #     return uselessSwapIndex
 
         for episode in range(num_episode):
+            # self.policy_net.train()
+            print(f"Weight: {self.policy_net.fc1.weight}")
+            print(f"Weight: {self.policy_net.fc2.weight}")
+            print(f"Weight: {self.policy_net.fc3.weight}")
 
+            # print(self.policy_net.la)
+            state_pool = []
+            action_pool = []
+            reward_pool = []
+            energy_pool = []
+            log_probability_list = []
+            episode_durations = []
             # Init at a random state, equivalent env.reset() with gym
             state = copy.deepcopy(starting_tm)
-            #random.shuffle(state)
-            for time_step in count():
-                
+            random.shuffle(state)
+            # random.shuffle(state)
+            for time_step in range(0, episode_max_step):
+                print('hey')
                 # Encode and pad the state to fit in the policy network
-                encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)                
-                probability_vector = self.policy_net(encoded_padded_state)
-                 
-                uselessSwapIndex = getUselessSwapIndex(state)
-                cleanProba(probability_vector, uselessSwapIndex)
+                encoded_padded_state = self.make_encoded_state_vector(state, max_input_size)
+                print(encoded_padded_state)
+                self.probability_vector = self.policy_net(encoded_padded_state)
+                print(f"Episode: {episode} {time_step} State: {state}\t probability vector \t{self.probability_vector}")
+                # uselessSwapIndex = getUselessSwapIndex(state)
+                # cleanProba(self.probability_vector, uselessSwapIndex)
 
-                action_idx, action = self.get_action(probability_vector)
-               
-                m = Categorical(probability_vector)
+                m = Categorical(self.probability_vector)
                 action_sample = m.sample()
+                print(f"Action space:{action_sample}, {type(action_sample)}, \tlog probability:"
+                      f" {m.log_prob(action_sample)}")
+                writer.add_scalar("Log probability", m.log_prob(action_sample), steps)
                 log_probability_list.append(m.log_prob(action_sample))
-                #log_probability_list.append(torch.log(probability_vector.squeeze(0)[action_idx]))
+                # action = action_sample.item()
+                # print("action:", action)
+
+                action_idx = action_sample.item()
+                action = self.swap_list[action_idx]
+                # action_idx, action = self.get_action(probability_vector)
+                # log_probability_list.append(torch.log(probability_vector.squeeze(0)[action_idx]))
 
                 # Take a step into the env and get the next state and the reward
 
@@ -235,36 +270,38 @@ class PolicyGradient:
                 state_pool.append(encoded_padded_state)
                 action_pool.append(action_idx)
                 reward_pool.append(reward)
+                writer.add_scalar("Reward x epoch", reward, steps)
 
                 state = next_state
                 steps += 1
 
-                if time_step >= episode_max_step - 1:
+                if time_step is episode_max_step - 1:
                     episode_durations.append(time_step + 1)
 
                     if verbose == 1:
                         print(f"Episode: {episode} Average Reward: {np.mean(reward_pool)}")
 
-                    writer.add_scalar("Reward x epoch", np.mean(reward_pool), episode)
-                    break
+                    # writer.add_scalar("Reward x epoch", np.mean(reward_pool), episode)
+                print(f"Long probability list {log_probability_list}")
 
             # Update Policy
             if episode % batch_size == 0:
+                # print(f"Long probability list {log_probability_list}")
+                log_probability_list = torch.stack(log_probability_list)
                 # Compute the discount ed return (discounted reward sum)
-                reward_pool = self.compute_discounted_rewards(reward_pool, steps, gamma)
+                reward_pool = self.compute_discounted_rewards(reward_pool, episode_max_step, gamma)
                 # Normalize reward
-                reward_pool = self.normalize_reward(reward_pool, steps)
+                # reward_pool = self.normalize_reward(reward_pool, steps)
                 # Gradient Desent
-                self.optimize(writer, episode, steps, reward_pool, log_probability_list, verbose)
+                self.optimize(writer, episode, episode_max_step, reward_pool, log_probability_list, verbose)
 
-                state_pool = []
-                action_pool = []
-                reward_pool = []
-                log_probability_list = []
-                steps = 0
+                # state_pool = []
+                # action_pool = []
+                # reward_pool = []
+                # log_probability_list = []
 
         writer.close()
-        
+
     def run_episode(self, starting_temporal_mapping, episode_max_step):
 
         state = starting_temporal_mapping
@@ -275,6 +312,7 @@ class PolicyGradient:
             # Encode and pad the state to fit in the policy network
             encoded_padded_state = self.make_encoded_state_vector(state, 30)
             probability_vector = self.policy_net(encoded_padded_state)
+            print(f"Probability vector:{probability_vector}")
             action_idx, action = self.get_action(probability_vector)
 
             # Take a step into the env and get the next state and the reward
@@ -284,5 +322,5 @@ class PolicyGradient:
 
             if time_step >= episode_max_step - 1:
                 break
-        
+
         return state
