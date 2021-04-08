@@ -114,6 +114,7 @@ if __name__ == "__main__":
                                                       input_settings.L2_size)
         current_time = now.strftime("%H:%M:%S")
         print(current_time, ' MSG finished')
+        
     if input_settings.mem_hierarchy_single_simulation:
         mem_scheme_sim, mem_scheme_node_sim = msg.msg(input_settings.mem_pool,
                                                       input_settings.mac_array_info['array_size'],
