@@ -13,3 +13,4 @@ mprofile_*
 env
 *.swp
 .env/
+runs/
