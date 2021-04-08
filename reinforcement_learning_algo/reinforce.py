@@ -102,35 +102,44 @@ class PolicyGradient:
                           mem_scheme=self.mem_scheme, ii_su=self.ii_su, mac_costs=self.mac_costs,
                           observation_state_length=observation_state_length,
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
+        
         step = 0
         best_result = ()
         max_reward = 0
+        
         for i_episode in count(1):
             done = False
             state, episode_reward = env.reset(), 0
             episode_rewards = []
+        
             for timestamp in range(1, 10000):  # Don't do infinite loop while learning
+        
                 if done:
                     env.reset()
                     break
                 action = self.select_action(state)
                 state, reward, done, info = env.step(action, timestemp=timestamp)
+        
                 if reward > max_reward:
                     max_reward = reward
                     best_result = state
+        
                 self.policy_net.rewards.append(reward)
                 episode_reward += reward
                 episode_rewards.append(reward)
                 step += 1
                 writer.add_scalar("Episode reward", reward, step)
+        
             writer.add_scalar("Episode mean reward", np.mean(episode_rewards), step)
             running_reward = np.mean(episode_rewards)
             loss = self.finish_episode(gamma)
+
             if i_episode % log_interval == 0:
                 print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                     i_episode, episode_reward, running_reward))
                 writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
+                
             if running_reward >= reward_stop_condition:
                 best_result["temporal_mapping"] = best_result["temporal_mapping"].value
                 print("Solved! Running reward is now {} and "
