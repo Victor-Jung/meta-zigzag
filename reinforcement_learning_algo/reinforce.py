@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning_algo import eps
 from reinforcement_learning_algo.core.environment import Environment
+from reinforcement_learning_algo.core.action import Action
 from reinforcement_learning_algo.cost_esimator import *
 
 
@@ -50,7 +51,6 @@ class PolicyGradient:
         encoded_padded_state = encoded_padded_state['temporal_mapping']
         encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
         self.probability_vector = self.policy_net(encoded_padded_state)
-        print(torch.mean(self.probability_vector))
         m = Categorical(self.probability_vector)
         action = m.sample()
         self.policy_net.saved_log_probs.append(m.log_prob(action))
@@ -96,12 +96,15 @@ class PolicyGradient:
         writer = SummaryWriter()
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
+
         env = Environment(layer=self.layer, im2col_layer=self.im2col_layer, layer_rounded=self.layer_rounded,
                           spatial_loop_comb=self.spatial_loop_comb, input_settings=self.input_settings,
                           mem_scheme=self.mem_scheme, ii_su=self.ii_su, mac_costs=self.mac_costs,
                           observation_state_length=observation_state_length,
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
         step = 0
+        best_result = ()
+        max_reward = 0
         for i_episode in count(1):
             done = False
             state, episode_reward = env.reset(), 0
@@ -110,17 +113,17 @@ class PolicyGradient:
                 if done:
                     env.reset()
                     break
-                print(f"T {timestamp}\tstate\t{state['utilization']}")
                 action = self.select_action(state)
                 state, reward, done, info = env.step(action, timestemp=timestamp)
+                if reward > max_reward:
+                    max_reward = reward
+                    best_result = state
                 self.policy_net.rewards.append(reward)
                 episode_reward += reward
                 episode_rewards.append(reward)
                 step += 1
                 writer.add_scalar("Episode reward", reward, step)
             writer.add_scalar("Episode mean reward", np.mean(episode_rewards), step)
-
-            # running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
             running_reward = np.mean(episode_rewards)
             loss = self.finish_episode(gamma)
             if i_episode % log_interval == 0:
@@ -128,9 +131,11 @@ class PolicyGradient:
                     i_episode, episode_reward, running_reward))
                 writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
-            if running_reward > reward_stop_condition:
+            if running_reward >= reward_stop_condition:
+                best_result["temporal_mapping"] = best_result["temporal_mapping"].value
                 print("Solved! Running reward is now {} and "
                       "the last episode runs to {} time steps!".format(running_reward, timestamp))
+                print(f"Best result: {best_result}\treward{max_reward}")
                 break
 
     def run_episode(self, starting_temporal_mapping, episode_max_step):

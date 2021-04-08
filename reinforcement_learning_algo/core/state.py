@@ -73,7 +73,6 @@ class TemporalMappingState:
     def make_encoded_state_vector(self, max_input_size=22):
         self.encode_temporal_mapping()
         self.pad_temporal_mapping(max_input_size)
-        # print(self.value)
         encoded_padded_state = torch.from_numpy(np.asarray(self.value)).float()
         encoded_padded_state = Variable(encoded_padded_state)
         return encoded_padded_state
@@ -83,6 +82,13 @@ class TemporalMappingState:
         self.utilization = utilization
         return {
             "temporal_mapping": self,
+            "energy": self.energy,
+            "utilization": self.utilization,
+        }
+
+    def get_dict(self):
+        return {
+            "temporal_mapping": self.value,
             "energy": self.energy,
             "utilization": self.utilization,
         }

@@ -18,6 +18,7 @@ class Environment(gym.Env):
       Observation:
           Type: Box(2)
           Num     Observation               Min                     Max
+          0       Temporal mapping
           1       Utilization               0                       1
           2       Energy                    0                       infinity
       Actions:
@@ -55,7 +56,7 @@ class Environment(gym.Env):
         self.action_state_length = int((observation_state_length * (observation_state_length - 1)) / 2)
         self.action_space = spaces.Discrete(self.action_state_length)
 
-        # Evaluate function optimizer variables
+        # ZigZg evaluate function optimizer variables
         self.layer = layer
         self.layer_architecture = layer.size_list_output_print
         self.im2col_layer = im2col_layer
