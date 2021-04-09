@@ -57,10 +57,19 @@ def randomize_temporal_mapping(tm_primary_factors):
     return tm_primary_factors
 
 
+def clean_pf_temporal_mapping(tm_primary_factors):
+    cleaned_tm_ordering = []
+    for loop in tm_primary_factors:
+        if loop[1] != 1:
+            cleaned_tm_ordering.append(loop)
+    
+    return cleaned_tm_ordering
+
 def initialize_temporal_mapping(temporal_mapping_ordering) -> list:
-    temporal_mapping_pm_ordering = find_tm_primary_factors(temporal_mapping_ordering)
-    temporal_mapping_pm_ordering = randomize_temporal_mapping(temporal_mapping_pm_ordering)
-    return temporal_mapping_pm_ordering
+    temporal_mapping_pf_ordering = find_tm_primary_factors(temporal_mapping_ordering)
+    temporal_mapping_pf_ordering = clean_pf_temporal_mapping(temporal_mapping_pf_ordering)
+    temporal_mapping_pf_ordering = randomize_temporal_mapping(temporal_mapping_pf_ordering)
+    return temporal_mapping_pf_ordering
 
 
 def temporal_mapping_baseline_performances(temporal_mapping_ordering, max_step, layer, im2col_layer,
@@ -115,6 +124,6 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer
         neural_network, temporal_mapping_pf_ordering, layer,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su)
 
-    policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.5, gamma=0.9, log_interval=1,
-                             observation_state_length=observation_state_length, episode_utilization_stop_condition=0.8,
-                             timestamp_number=100)
+    policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.7, gamma=0.9, log_interval=1,
+                             observation_state_length=observation_state_length, episode_utilization_stop_condition=0.6,
+                             timestamp_number=23)

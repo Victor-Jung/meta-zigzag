@@ -43,6 +43,36 @@ class PolicyGradient:
         self.mac_costs = calculate_mac_level_costs(self.layer, self.layer_rounded,
                                                    self.input_settings, self.mem_scheme, self.ii_su)
 
+    ###  WIP Here ###
+
+    def check_compressed_TM_ordering_equality(self, tm1, tm2):
+
+        compressed_tm1 = deepcopy(tm1)
+        compressed_tm2 = deepcopy(tm2)
+
+        if len(compressed_tm1) != len(compressed_tm2):
+            return False
+
+        for i in range(len(compressed_tm1)):
+            if compressed_tm1[i] != compressed_tm2[i]:
+                return False
+
+        return True
+
+    def pf_to_compressed_mapping(self, pf_temporal_mapping):
+        compressed_temporal_mapping = [pf_temporal_mapping[0]]
+        for i in range(1, len(pf_temporal_mapping)):
+            if pf_temporal_mapping[i][0] == compressed_temporal_mapping[-1][0]:
+                compressed_temporal_mapping[-1] = (
+                    pf_temporal_mapping[i][0],
+                    pf_temporal_mapping[i][1] * compressed_temporal_mapping[-1][1],
+                )
+            else:
+                compressed_temporal_mapping.append(pf_temporal_mapping[i])
+        return compressed_temporal_mapping
+
+    ### End of WIP ###
+
     def optimize(self, writer, episode, steps, reward_pool, log_probability_list, verbose=0):
         pass
 
@@ -92,7 +122,7 @@ class PolicyGradient:
         return policy_loss
 
     def training(self, learning_rate=1e-2, reward_stop_condition=0.5, gamma=0.9, log_interval=1, observation_state_length=22,
-                 episode_utilization_stop_condition=0.8, timestamp_number=50):
+                 episode_utilization_stop_condition=0.58, timestamp_number=100):
         writer = SummaryWriter()
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
@@ -104,11 +134,13 @@ class PolicyGradient:
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
         
         step = 0
+        anna_symbol = 0
         best_result = ()
         max_reward = 0
         
         for i_episode in count(1):
             done = False
+            reward = 0
             state, episode_reward = env.reset(), 0
             episode_rewards = []
         
@@ -118,7 +150,15 @@ class PolicyGradient:
                     env.reset()
                     break
                 action = self.select_action(state)
+                previous_state = state
                 state, reward, done, info = env.step(action, timestemp=timestamp)
+                
+                if not self.check_compressed_TM_ordering_equality(self.pf_to_compressed_mapping(previous_state['temporal_mapping'].value), 
+                                                                  self.pf_to_compressed_mapping(state['temporal_mapping'].value)):
+                    reward = 0
+                else:
+                    anna_symbol+=1
+                    writer.add_scalar("Reward when useful swap", reward, anna_symbol)
         
                 if reward > max_reward:
                     max_reward = reward
@@ -137,8 +177,8 @@ class PolicyGradient:
             if i_episode % log_interval == 0:
                 print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                     i_episode, episode_reward, running_reward))
-                writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
+                writer.add_scalar("Best utilization", best_result['utilization'], i_episode)
                 
             if running_reward >= reward_stop_condition:
                 best_result["temporal_mapping"] = best_result["temporal_mapping"].value
