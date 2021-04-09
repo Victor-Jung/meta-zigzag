@@ -1,8 +1,8 @@
 import math
 import random
 
-import torch
 import numpy as np
+import torch
 from sympy import factorint
 from torch.autograd import Variable
 
@@ -20,6 +20,18 @@ class TemporalMappingState:
         self.randomize_temporal_mapping()
         self.energy = 0
         self.utilization = 0
+
+    def pf_to_compressed_mapping(self):
+        compressed_temporal_mapping = [self.value[0]]
+        for i in range(1, len(self.value)):
+            if self.value[i][0] == compressed_temporal_mapping[-1][0]:
+                compressed_temporal_mapping[-1] = (
+                    self.value[i][0],
+                    self.value[i][1] * compressed_temporal_mapping[-1][1],
+                )
+            else:
+                compressed_temporal_mapping.append(self.value[i])
+        self.value = compressed_temporal_mapping
 
     def form_temporal_mapping_ordering(self, layer_architecture):
         # Extract the naive TM from the layer architecture contained in layer_post

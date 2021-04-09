@@ -56,11 +56,11 @@ class PolicyGradient:
         self.policy_net.saved_log_probs.append(m.log_prob(action))
         return action.item()
 
-    def calculate_rewards(self, gamma=0.9) -> list:
+    def calculate_rewards(self, episode=None, gamma=0.9) -> list:
         R = 0
         returns = []
         for reward in self.policy_net.rewards[::-1]:
-            R = reward + gamma * R
+            R = reward + pow(gamma, episode) * R
             returns.insert(0, R)
         returns = torch.tensor(returns)
         # normalize rewards
@@ -74,13 +74,13 @@ class PolicyGradient:
             policy_loss.append(-log_prob * reward)
         return policy_loss
 
-    def finish_episode(self, gamma=0.9):
+    def finish_episode(self, episode, gamma=0.9):
         """
         Function for calculating rewards, loss and doing backward propagation.
         :return:
             policy_loss - summarized loss
         """
-        returns = self.calculate_rewards(gamma)
+        returns = self.calculate_rewards(episode, gamma)
         policy_loss = self.calculate_loss(returns)
         self.optimizer.zero_grad()
         policy_loss = torch.stack(policy_loss).sum()
@@ -106,6 +106,7 @@ class PolicyGradient:
         step = 0
         best_result = ()
         max_reward = 0
+        result_reward = 0
         
         for i_episode in count(1):
             done = False
@@ -129,10 +130,12 @@ class PolicyGradient:
                 episode_rewards.append(reward)
                 step += 1
                 writer.add_scalar("Episode reward", reward, step)
-        
+
             writer.add_scalar("Episode mean reward", np.mean(episode_rewards), step)
+            result_reward += episode_reward
+            writer.add_scalar("Cumulative reward", result_reward, step)
             running_reward = np.mean(episode_rewards)
-            loss = self.finish_episode(gamma)
+            loss = self.finish_episode(i_episode, gamma)
 
             if i_episode % log_interval == 0:
                 print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
