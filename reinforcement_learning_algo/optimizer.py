@@ -23,7 +23,8 @@ def temporal_mapping_baseline_performances(temporal_mapping_ordering, max_step, 
     energy_list = []
     utilization_list = []
 
-    temporal_mapping_pf_ordering = TemporalMappingState(layer_architecture=layer.size_list_output_print)
+    temporal_mapping_pf_ordering = TemporalMappingState(temporal_mapping_ordering,
+                                                        layer_architecture=layer.size_list_output_print)
     for i in range(max_step):
         temporal_mapping_pf_ordering.randomize_temporal_mapping()
         mac_costs = calculate_mac_level_costs(
