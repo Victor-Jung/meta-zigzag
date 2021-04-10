@@ -187,5 +187,56 @@ class PolicyGradient:
                 print(f"Best result: {best_result}\treward{max_reward}")
                 break
 
-    def run_episode(self, starting_temporal_mapping, episode_max_step):
-        pass
+    def run_episode(self, starting_temporal_mapping, observation_state_length=22, gamma=0.9, episode_max_step=100, episode_utilization_stop_condition=0.5):
+
+        env = Environment(layer=self.layer, im2col_layer=self.im2col_layer, layer_rounded=self.layer_rounded,
+                          spatial_loop_comb=self.spatial_loop_comb, input_settings=self.input_settings,
+                          mem_scheme=self.mem_scheme, ii_su=self.ii_su, mac_costs=self.mac_costs,
+                          observation_state_length=observation_state_length,
+                          utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=episode_max_step)
+
+        step = 0
+        useful_swap_reward = 0
+        best_result = ()
+        max_reward = 0
+
+        done = False
+        reward = 0
+        state, episode_reward = env.reset(), 0
+        episode_rewards = []
+
+        for timestamp in range(1, 10000):  # Don't do infinite loop while learning
+        
+            if done:
+                env.reset()
+                break
+            action = self.select_action(state)
+            previous_state = state
+            state, reward, done, info = env.step(action, timestemp=timestamp)
+            
+            if not self.check_compressed_TM_ordering_equality(self.pf_to_compressed_mapping(previous_state['temporal_mapping'].value), 
+                                                                self.pf_to_compressed_mapping(state['temporal_mapping'].value)):
+                reward = 0
+            else:
+                useful_swap_reward+=1
+    
+            if reward > max_reward:
+                max_reward = reward
+                best_result = state
+    
+            self.policy_net.rewards.append(reward)
+            episode_reward += reward
+            episode_rewards.append(reward)
+            step += 1
+                
+            running_reward = np.mean(episode_rewards)
+            loss = self.finish_episode(gamma)
+
+            if running_reward >= episode_utilization_stop_condition:
+                best_result["temporal_mapping"] = best_result["temporal_mapping"].value
+                break
+        
+        best_result["temporal_mapping"] = best_result["temporal_mapping"].value
+        print("Running reward is now {} and "
+              "the last episode runs to {} time steps!".format(running_reward, timestamp))
+        print(f"Best result: {best_result}\treward{max_reward}")
