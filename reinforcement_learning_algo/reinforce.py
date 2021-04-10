@@ -134,7 +134,7 @@ class PolicyGradient:
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
         
         step = 0
-        anna_symbol = 0
+        useful_swap_reward = 0
         best_result = ()
         max_reward = 0
         
@@ -157,8 +157,8 @@ class PolicyGradient:
                                                                   self.pf_to_compressed_mapping(state['temporal_mapping'].value)):
                     reward = 0
                 else:
-                    anna_symbol+=1
-                    writer.add_scalar("Reward when useful swap", reward, anna_symbol)
+                    useful_swap_reward+=1
+                    writer.add_scalar("Reward when useful swap", reward, useful_swap_reward)
         
                 if reward > max_reward:
                     max_reward = reward
