@@ -3,9 +3,8 @@ import numpy as np
 from gym import spaces, logger
 from gym.utils import seeding
 
-from reinforcement_learning_algo.core.action import Action
-from reinforcement_learning_algo.cost_esimator import *
 from reinforcement_learning_algo.core.state import TemporalMappingState
+from reinforcement_learning_algo.cost_esimator import *
 
 
 class Environment(gym.Env):
@@ -42,7 +41,8 @@ class Environment(gym.Env):
 
     def __init__(self, layer, im2col_layer=None, layer_rounded=None,
                  spatial_loop_comb=None, input_settings=None, mem_scheme=None, ii_su=None, mac_costs=None,
-                 observation_state_length=22, utilization_threshold = 0.8, timestamp_threshold = 50):
+                 observation_state_length=22, utilization_threshold=0.8, timestamp_threshold=50,
+                 repetition_threshold=10):
         # Spaces
         self.observation_state_length = observation_state_length
         self.observation_space = spaces.Dict({
@@ -70,10 +70,13 @@ class Environment(gym.Env):
         # Thresholds
         self.utilization_threshold = utilization_threshold
         self.timestamp_threshold = timestamp_threshold
+        self.repetition_threshold = repetition_threshold
 
         # Process variables
         self.state = None
         self.steps_beyond_done = None
+
+        self.last_actions = []
 
     def seed(self, seed=None):
         """
@@ -106,10 +109,19 @@ class Environment(gym.Env):
             done (bool): whether the episode has ended, in which case further step() calls will return undefined results
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
+        # print(action)
         err_msg = "%r (%s) invalid" % (action, type(action))
-        assert self.action_space.contains(action), err_msg
-        # print("self.action_state_length", self.action_state_length)
-        self.action = Action(action, action_list_size=self.observation_state_length)
+        assert self.action_space.contains(action.idx), err_msg
+
+        self.action = action
+        is_repetition = False
+
+        self.last_actions.append(action)
+        if len(self.last_actions) > self.repetition_threshold:
+            self.last_actions.pop(0)
+        # print(self.last_actions, set(self.last_actions), len(set(self.last_actions)))
+        # if len(self.last_actions) >= self.repetition_threshold and len(set(self.last_actions)) < 3:
+        #     is_repetition = True
 
         temporal_mapping_obj = self.state["temporal_mapping"]
         temporal_mapping_obj = self.action.perform(temporal_mapping_obj)
@@ -122,7 +134,7 @@ class Environment(gym.Env):
         self.state = temporal_mapping_obj.get_state_dict(energy=energy, utilization=utilization)
 
         done = bool(
-            utilization > self.utilization_threshold or timestemp > self.timestamp_threshold
+            utilization > self.utilization_threshold or timestemp > self.timestamp_threshold or is_repetition
         )
 
         if not done:
@@ -161,7 +173,6 @@ class Environment(gym.Env):
                                                            layer=[self.im2col_layer, self.layer_rounded],
                                                            mac_costs=self.mac_costs)
         self.state = temporal_mapping_obj.get_state_dict(energy=energy, utilization=utilization)
-        # print("env_state", self.state, type(self.state))
         return self.state
 
     def render(self, mode='human'):

@@ -3,6 +3,7 @@ from itertools import count
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
@@ -76,21 +77,37 @@ class PolicyGradient:
     def optimize(self, writer, episode, steps, reward_pool, log_probability_list, verbose=0):
         pass
 
-    def select_action(self, state):
+    def filter_legal_actions(self, state, action_probs):
+        temporal_mapping = state["temporal_mapping"]
+        # compressed_temporal_mapping
+        # print(state)
+
+    def select_action(self, state, observation_state_length):
         encoded_padded_state = deepcopy(state)
         encoded_padded_state = encoded_padded_state['temporal_mapping']
         encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
-        self.probability_vector = self.policy_net(encoded_padded_state)
-        m = Categorical(self.probability_vector)
-        action = m.sample()
-        self.policy_net.saved_log_probs.append(m.log_prob(action))
-        return action.item()
+        action_probs = self.policy_net(encoded_padded_state)
+        # legal_actions = self.filter_legal_actions(state, action_probs)
+        # print(action_probs)
+        action = Action(action_list_size=observation_state_length)
+        state  = state['temporal_mapping'].value
+        action_probs = action.filter_action_list(state=state, action_probs=action_probs)
+        # print(action_probs)
+        best_legal_action = F.softmax(action_probs, dim=0)
+        m = Categorical(best_legal_action)
+        action_id = m.sample()
+        self.policy_net.saved_log_probs.append(m.log_prob(action_id))
+        action_id = action_id.tolist()
+        # print(action_id)
+        # return action.item()
+        action.set_idx(action_id)
+        return action
 
-    def calculate_rewards(self, gamma=0.9) -> list:
+    def calculate_rewards(self, episode=None, gamma=0.9) -> list:
         R = 0
         returns = []
         for reward in self.policy_net.rewards[::-1]:
-            R = reward + gamma * R
+            R = reward + pow(gamma, episode) * R
             returns.insert(0, R)
         returns = torch.tensor(returns)
         # normalize rewards
@@ -104,13 +121,13 @@ class PolicyGradient:
             policy_loss.append(-log_prob * reward)
         return policy_loss
 
-    def finish_episode(self, gamma=0.9):
+    def finish_episode(self, episode, gamma=0.9):
         """
         Function for calculating rewards, loss and doing backward propagation.
         :return:
             policy_loss - summarized loss
         """
-        returns = self.calculate_rewards(gamma)
+        returns = self.calculate_rewards(episode, gamma)
         policy_loss = self.calculate_loss(returns)
         self.optimizer.zero_grad()
         policy_loss = torch.stack(policy_loss).sum()
@@ -137,6 +154,7 @@ class PolicyGradient:
         useful_swap_reward = 0
         best_result = ()
         max_reward = 0
+        result_reward = 0
         
         for i_episode in count(1):
             done = False
@@ -145,12 +163,9 @@ class PolicyGradient:
             episode_rewards = []
         
             for timestamp in range(1, 10000):  # Don't do infinite loop while learning
-        
-                if done:
-                    env.reset()
-                    break
-                action = self.select_action(state)
-                previous_state = state
+
+                action = self.select_action(state, observation_state_length)
+                writer.add_scalar("Action", action.idx, step)
                 state, reward, done, info = env.step(action, timestemp=timestamp)
                 
                 if not self.check_compressed_TM_ordering_equality(self.pf_to_compressed_mapping(previous_state['temporal_mapping'].value), 
@@ -167,23 +182,30 @@ class PolicyGradient:
                 self.policy_net.rewards.append(reward)
                 episode_reward += reward
                 episode_rewards.append(reward)
+                print('Episode {}\tTimestamp: {}\tReward: {:.2f}\tAction: {}\tDone: {}'.format(
+                    i_episode, timestamp, reward, action.idx, done))
                 step += 1
                 writer.add_scalar("Episode reward", reward, step)
-        
+                if done:
+                    break
+
             writer.add_scalar("Episode mean reward", np.mean(episode_rewards), step)
+            result_reward += episode_reward
+            writer.add_scalar("Cumulative reward", result_reward, step)
             running_reward = np.mean(episode_rewards)
-            loss = self.finish_episode(gamma)
+            loss = self.finish_episode(i_episode, gamma)
 
             if i_episode % log_interval == 0:
-                print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
-                    i_episode, episode_reward, running_reward))
+                print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f} Loss{}'.format(
+                    i_episode, episode_reward, running_reward, loss))
+                writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
                 writer.add_scalar("Best utilization", best_result['utilization'], i_episode)
                 
             if running_reward >= reward_stop_condition:
                 best_result["temporal_mapping"] = best_result["temporal_mapping"].value
                 print("Solved! Running reward is now {} and "
-                      "the last episode runs to {} time steps!".format(running_reward, timestamp))
+                      "the last episode runs to {} time st  eps!".format(running_reward, timestamp))
                 print(f"Best result: {best_result}\treward{max_reward}")
                 break
 

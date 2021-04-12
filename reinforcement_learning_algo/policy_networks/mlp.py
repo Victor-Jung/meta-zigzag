@@ -20,4 +20,5 @@ class MLP(nn.Module):
     def forward(self, x):
         x = F.relu(self.dropout(self.fc1(x)))
         action_scores = self.fc2(x)
-        return F.softmax(action_scores, dim=0)
+        # return F.softmax(action_scores, dim=0)
+        return action_scores
