@@ -32,6 +32,7 @@ class TemporalMappingState:
             else:
                 compressed_temporal_mapping.append(self.value[i])
         self.value = compressed_temporal_mapping
+        return self.value
 
     def form_temporal_mapping_ordering(self, layer_architecture):
         # Extract the naive TM from the layer architecture contained in layer_post
@@ -52,14 +53,17 @@ class TemporalMappingState:
                     for pow in range(factor[1]):
                         temporal_mapping_primary_factors.append((inner_loop[0], factor[0]))
         self.value = temporal_mapping_primary_factors
+        return self.value
 
     def randomize_temporal_mapping(self):
         # Shuffle the LPF_TM to get a random initalization into the design space
         random.shuffle(self.value)
+        return self.value
 
     def initialize_temporal_mapping(self):
         self.find_temporal_mapping_primary_factors()
         self.randomize_temporal_mapping()
+        return self.value
 
     def encode_temporal_mapping(self):
         encoded_temporal_mapping = []
@@ -73,14 +77,17 @@ class TemporalMappingState:
     def pad_temporal_mapping(self, max_length=22):
         for i in range(max_length - len(self.value)):
             self.value.append(0)
+        return self.value
 
     def unpad_temporal_mapping(self):
         self.value = list(filter(lambda x: x != 0, self.value))
+        return self.value
 
     def tm_swap(self, idx1, idx2):
         temp = self.value[idx1]
         self.value[idx1] = self.value[idx2]
         self.value[idx2] = temp
+        return self.value
 
     def make_encoded_state_vector(self, max_input_size=22):
         self.encode_temporal_mapping()
