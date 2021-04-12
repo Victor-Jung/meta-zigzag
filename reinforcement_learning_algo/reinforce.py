@@ -129,7 +129,7 @@ class PolicyGradient:
             done = False
             state, episode_reward = env.reset(), 0
             episode_rewards = []
-        
+            env.last_actions = []
             for timestamp in range(1, 10000):  # Don't do infinite loop while learning
 
                 action = self.select_action(state, observation_state_length)
@@ -161,12 +161,13 @@ class PolicyGradient:
                     i_episode, episode_reward, running_reward, loss))
                 writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
-                
-            if running_reward >= reward_stop_condition:
+
+            is_zero_loss = round(loss.tolist(), 4)  == 0
+            if running_reward >= reward_stop_condition or is_zero_loss :
                 best_result["temporal_mapping"] = best_result["temporal_mapping"].value
                 print("Solved! Running reward is now {} and "
                       "the last episode runs to {} time st  eps!".format(running_reward, timestamp))
-                print(f"Best result: {best_result}\treward{max_reward}")
+                print(f"Reward: {max_reward}\t Best result: {best_result}\t")
                 break
 
     def run_episode(self, starting_temporal_mapping, episode_max_step):

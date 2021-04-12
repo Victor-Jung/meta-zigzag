@@ -42,7 +42,7 @@ class Environment(gym.Env):
     def __init__(self, layer, im2col_layer=None, layer_rounded=None,
                  spatial_loop_comb=None, input_settings=None, mem_scheme=None, ii_su=None, mac_costs=None,
                  observation_state_length=22, utilization_threshold=0.8, timestamp_threshold=50,
-                 repetition_threshold=10):
+                 repetition_threshold=5):
         # Spaces
         self.observation_state_length = observation_state_length
         self.observation_space = spaces.Dict({
@@ -116,12 +116,12 @@ class Environment(gym.Env):
         self.action = action
         is_repetition = False
 
-        self.last_actions.append(action)
+        self.last_actions.append(action.idx)
         if len(self.last_actions) > self.repetition_threshold:
             self.last_actions.pop(0)
         # print(self.last_actions, set(self.last_actions), len(set(self.last_actions)))
-        # if len(self.last_actions) >= self.repetition_threshold and len(set(self.last_actions)) < 3:
-        #     is_repetition = True
+        if len(self.last_actions) >= self.repetition_threshold and len(set(self.last_actions)) < 3:
+            is_repetition = True
 
         temporal_mapping_obj = self.state["temporal_mapping"]
         temporal_mapping_obj = self.action.perform(temporal_mapping_obj)
