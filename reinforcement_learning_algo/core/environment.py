@@ -42,7 +42,7 @@ class Environment(gym.Env):
     def __init__(self, layer, im2col_layer=None, layer_rounded=None,
                  spatial_loop_comb=None, input_settings=None, mem_scheme=None, ii_su=None, mac_costs=None,
                  observation_state_length=22, utilization_threshold=0.8, timestamp_threshold=50,
-                 repetition_threshold=10):
+                 repetition_threshold=5):
         # Spaces
         self.observation_state_length = observation_state_length
         self.observation_space = spaces.Dict({
@@ -71,6 +71,8 @@ class Environment(gym.Env):
         self.utilization_threshold = utilization_threshold
         self.timestamp_threshold = timestamp_threshold
         self.repetition_threshold = repetition_threshold
+        self.best_utilization_so_far = 0
+        self.previous_reward = 0
 
         # Process variables
         self.state = None
@@ -134,13 +136,15 @@ class Environment(gym.Env):
         self.state = temporal_mapping_obj.get_state_dict(energy=energy, utilization=utilization)
 
         done = bool(
-            utilization > self.utilization_threshold or timestemp > self.timestamp_threshold or is_repetition
+            utilization > self.utilization_threshold or timestemp > self.timestamp_threshold or is_repetition or utilization > self.best_utilization_so_far
         )
 
         if not done:
-            reward = utilization
+            reward = utilization - self.previous_reward
+            self.previous_reward = utilization
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
+            self.best_utilization_so_far = utilization
             reward = utilization
         else:
             if self.steps_beyond_done == 0:
@@ -165,6 +169,8 @@ class Environment(gym.Env):
         Returns:
             observation (object): the initial observation.
         """
+        self.steps_beyond_done = None
+        #self.previous_reward = 0
         temporal_mapping_obj = TemporalMappingState(layer_architecture=self.layer_architecture)
         temporal_mapping = temporal_mapping_obj.value
         energy, utilization = get_temporal_loop_estimation(temporal_mapping, self.input_settings,

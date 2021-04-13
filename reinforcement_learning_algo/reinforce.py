@@ -29,6 +29,7 @@ class PolicyGradient:
 
         # Starting Temporal Mapping
         self.starting_temporal_mapping = temporal_mapping_ordering
+        self.entropy_term = 0
 
         # Cost Estimation Parameters
         self.loss = 0
@@ -83,25 +84,33 @@ class PolicyGradient:
         # print(state)
 
     def select_action(self, state, observation_state_length):
+
+        # Preprocessing
         encoded_padded_state = deepcopy(state)
         encoded_padded_state = encoded_padded_state['temporal_mapping']
         encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
-        action_probs = self.policy_net(encoded_padded_state)
-        # legal_actions = self.filter_legal_actions(state, action_probs)
-        # print(action_probs)
+
+        # Prediction
+        value, action_probs = self.policy_net(encoded_padded_state)
+
+        # Postprocessing
         action = Action(action_list_size=observation_state_length)
         state  = state['temporal_mapping'].value
         action_probs = action.filter_action_list(state=state, action_probs=action_probs)
-        # print(action_probs)
         best_legal_action = F.softmax(action_probs, dim=0)
+
+        entropy = np.sum(np.mean(best_legal_action.detach().numpy()) * np.log(best_legal_action.detach().numpy()))
+
         m = Categorical(best_legal_action)
         action_id = m.sample()
+
         self.policy_net.saved_log_probs.append(m.log_prob(action_id))
         action_id = action_id.tolist()
-        # print(action_id)
-        # return action.item()
         action.set_idx(action_id)
-        return action
+
+        value = value.detach().numpy()[0]
+
+        return value, action, entropy
 
     def calculate_rewards(self, episode=None, gamma=0.9) -> list:
         R = 0
@@ -115,32 +124,48 @@ class PolicyGradient:
             returns = (returns - returns.mean()) / (returns.std() + eps)
         return returns
 
-    def calculate_loss(self, returns) -> list:
-        policy_loss = []
-        for log_prob, reward in zip(self.policy_net.saved_log_probs, returns):
-            policy_loss.append(-log_prob * reward)
-        return policy_loss
+    def calculate_loss(self, advantage) -> list:
 
-    def finish_episode(self, episode, gamma=0.9):
+        log_probs = torch.stack(self.policy_net.saved_log_probs)
+
+        actor_loss = (- log_probs * advantage).mean()
+        critic_loss = 0.5 * (advantage**2).mean()
+        #ac_loss = actor_loss + critic_loss + 0.001 * self.entropy_term
+        ac_loss = actor_loss + critic_loss
+
+        return ac_loss
+
+    def finish_episode(self, episode, Qvals, values, gamma=0.9):
         """
         Function for calculating rewards, loss and doing backward propagation.
         :return:
             policy_loss - summarized loss
         """
-        returns = self.calculate_rewards(episode, gamma)
-        policy_loss = self.calculate_loss(returns)
+        values = torch.FloatTensor(values)
+        Qvals = torch.FloatTensor(Qvals)
+
+        advantage = Qvals - values
+
+        ac_loss = self.calculate_loss(advantage)
+        #ac_loss = torch.stack(ac_loss).sum()
+
         self.optimizer.zero_grad()
-        policy_loss = torch.stack(policy_loss).sum()
-        policy_loss.backward()
+        ac_loss.backward()
         self.optimizer.step()
+
         # clean memory
         del self.policy_net.rewards[:]
         del self.policy_net.saved_log_probs[:]
-        return policy_loss
+        return ac_loss
 
     def training(self, learning_rate=1e-2, reward_stop_condition=0.5, gamma=0.9, log_interval=1, observation_state_length=22,
                  episode_utilization_stop_condition=0.58, timestamp_number=100):
+        
         writer = SummaryWriter()
+        running_reward = 0
+
+        # A2C parameters
+        self.entropy_term = 0
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
 
@@ -161,51 +186,69 @@ class PolicyGradient:
             reward = 0
             state, episode_reward = env.reset(), 0
             episode_rewards = []
+            values = []
         
-            for timestamp in range(1, 10000):  # Don't do infinite loop while learning
+            for timestep in range(1, 10000):  # Don't do infinite loop while learning
 
-                action = self.select_action(state, observation_state_length)
-                writer.add_scalar("Action", action.idx, step)
-                state, reward, done, info = env.step(action, timestemp=timestamp)
-                
-                if not self.check_compressed_TM_ordering_equality(self.pf_to_compressed_mapping(previous_state['temporal_mapping'].value), 
-                                                                  self.pf_to_compressed_mapping(state['temporal_mapping'].value)):
-                    reward = 0
-                else:
-                    useful_swap_reward+=1
-                    writer.add_scalar("Reward when useful swap", reward, useful_swap_reward)
+                value, action, entropy = self.select_action(state, observation_state_length)
+                state, reward, done, info = env.step(action, timestemp=timestep)
         
                 if reward > max_reward:
                     max_reward = reward
                     best_result = state
         
-                self.policy_net.rewards.append(reward)
                 episode_reward += reward
-                episode_rewards.append(reward)
-                print('Episode {}\tTimestamp: {}\tReward: {:.2f}\tAction: {}\tDone: {}'.format(
-                    i_episode, timestamp, reward, action.idx, done))
+                self.entropy_term  += entropy
                 step += 1
+                
+                values.append(value)
+                episode_rewards.append(reward)
+                self.policy_net.rewards.append(reward)
+
+                print('Episode {}\tTimestamp: {}\tReward: {:.2f}\tAction: {}\tDone: {}'.format(
+                    i_episode, timestep, reward, action.idx, done))  
+                writer.add_scalar("Action", action.idx, step)
                 writer.add_scalar("Episode reward", reward, step)
+
                 if done:
+                    
+                    # State Preprocessing
+                    encoded_padded_state = deepcopy(state)
+                    encoded_padded_state = encoded_padded_state['temporal_mapping']
+                    encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
+
+                    Qval, _ =  self.policy_net.forward(encoded_padded_state)
+                    Qval = Qval.detach().numpy()[0]
+
                     break
 
-            writer.add_scalar("Episode mean reward", np.mean(episode_rewards), step)
+            
+            Qvals = np.zeros_like(values)
+
+            for t in reversed(range(len(episode_rewards))):
+                Qval = episode_rewards[t] + gamma * Qval
+                Qvals[t] = Qval
+
+            loss = self.finish_episode(i_episode, Qvals, values, gamma)
+
             result_reward += episode_reward
-            writer.add_scalar("Cumulative reward", result_reward, step)
-            running_reward = np.mean(episode_rewards)
-            loss = self.finish_episode(i_episode, gamma)
+            running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
+
+            writer.add_scalar("Episode max reward", np.max(episode_rewards), i_episode)
+            writer.add_scalar("Episode sum reward", np.sum(episode_rewards), i_episode)
+            writer.add_scalar("Running reward", running_reward, i_episode)
+            writer.add_scalar("Cumulative reward", result_reward, i_episode)
 
             if i_episode % log_interval == 0:
                 print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f} Loss{}'.format(
                     i_episode, episode_reward, running_reward, loss))
                 writer.add_scalar("Loss", loss, i_episode)
-                writer.add_scalar("Reward", running_reward, i_episode)
                 writer.add_scalar("Best utilization", best_result['utilization'], i_episode)
                 
             if running_reward >= reward_stop_condition:
                 best_result["temporal_mapping"] = best_result["temporal_mapping"].value
                 print("Solved! Running reward is now {} and "
-                      "the last episode runs to {} time st  eps!".format(running_reward, timestamp))
+                      "the last episode runs to {} time st  eps!".format(running_reward, timestep))
                 print(f"Best result: {best_result}\treward{max_reward}")
                 break
 

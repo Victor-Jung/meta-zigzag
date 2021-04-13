@@ -27,11 +27,11 @@ class Action:
             pos1, pos2 = action
             try:
                 if state[pos1] == state[pos2]:
-                    action_probs[i] /= 2
+                    action_probs[i] = 0
                 else:
                     k = set(loop_types[pos1:pos2 + 1])
                     if len(k) == 1:
-                        action_probs[i] /= 2
+                        action_probs[i] = 0
             except Exception:
                 action_probs[i] = 0
         return action_probs
