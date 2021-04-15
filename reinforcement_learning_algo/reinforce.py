@@ -87,12 +87,10 @@ class PolicyGradient:
         encoded_padded_state = encoded_padded_state['temporal_mapping']
         encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
         action_probs = self.policy_net(encoded_padded_state)
-        # legal_actions = self.filter_legal_actions(state, action_probs)
-        # print(action_probs)
+
         action = Action(action_list_size=observation_state_length)
         state  = state['temporal_mapping'].value
         action_probs = action.filter_action_list(state=state, action_probs=action_probs)
-        # print(action_probs)
         best_legal_action = F.softmax(action_probs, dim=0)
         m = Categorical(best_legal_action)
         action_id = m.sample()
@@ -167,13 +165,6 @@ class PolicyGradient:
                 action = self.select_action(state, observation_state_length)
                 writer.add_scalar("Action", action.idx, step)
                 state, reward, done, info = env.step(action, timestemp=timestamp)
-                
-                if not self.check_compressed_TM_ordering_equality(self.pf_to_compressed_mapping(previous_state['temporal_mapping'].value), 
-                                                                  self.pf_to_compressed_mapping(state['temporal_mapping'].value)):
-                    reward = 0
-                else:
-                    useful_swap_reward+=1
-                    writer.add_scalar("Reward when useful swap", reward, useful_swap_reward)
         
                 if reward > max_reward:
                     max_reward = reward
