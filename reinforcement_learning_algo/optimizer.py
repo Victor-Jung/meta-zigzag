@@ -142,18 +142,17 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer
     observation_state_length = 22
     action_state_length = int((observation_state_length * (observation_state_length - 1)) / 2)
 
+    '''
     tm = temporal_mapping_pf_ordering.value
     action_list = list(itertools.combinations(range(len(tm)), 2))
-    
     
     for i in range(10):
         get_average_neighborhood_utilization(tm, layer, im2col_layer, layer_rounded,
                                          spatial_loop_comb, input_settings, mem_scheme, ii_su)
         action = get_action(tm)
         tm = tm_swap(tm, action[0], action[1])
-    
-
     '''
+    
     neural_network = MLP(observation_state_length, action_state_length)
 
     policy_gradient = PolicyGradient(
@@ -163,4 +162,3 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer
     policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.4, gamma=0.9, log_interval=1,
                              observation_state_length=observation_state_length, episode_utilization_stop_condition=0.8,
                              timestamp_number=21)
-    '''
