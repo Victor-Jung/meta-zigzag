@@ -37,7 +37,7 @@ spatial_unrolling_multiprocessing : 1
 temporal_mapping_multiprocessing: 8
 
 # TEMPORAL MAPPING GENERATOR SETTINGS
-# search_method : exhaustive / heuristic_v1 / heuristic_v2 / iterative / loma
+# search_method : exhaustive / heuristic_v1 / heuristic_v2 / iterative / loma / RL
 temporal_mapping_search_method : RL
 
 # SPATIAL MAPPING GENERATOR SETTINGS

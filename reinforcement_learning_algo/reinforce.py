@@ -1,6 +1,9 @@
 from copy import deepcopy
 from itertools import count
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -20,7 +23,7 @@ class PolicyGradient:
     """
 
     def __init__(self, neural_network, temporal_mapping_ordering, layer,
-                 im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su):
+                 im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
         super(PolicyGradient, self).__init__()
 
@@ -44,6 +47,7 @@ class PolicyGradient:
         self.full_layer = [self.im2col_layer, self.layer_rounded]
         self.mac_costs = calculate_mac_level_costs(self.layer, self.layer_rounded,
                                                    self.input_settings, self.mem_scheme, self.ii_su)
+        self.spatial_unrolling = spatial_unrolling
 
     ###  WIP Here ###
 
@@ -88,7 +92,7 @@ class PolicyGradient:
         # Preprocessing
         encoded_padded_state = deepcopy(state)
         encoded_padded_state = encoded_padded_state['temporal_mapping']
-        encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
+        encoded_padded_state = encoded_padded_state.make_encoded_state_vector(observation_state_length)
 
         # Prediction
         value, action_probs = self.policy_net(encoded_padded_state)
@@ -171,7 +175,7 @@ class PolicyGradient:
 
         env = Environment(layer=self.layer, im2col_layer=self.im2col_layer, layer_rounded=self.layer_rounded,
                           spatial_loop_comb=self.spatial_loop_comb, input_settings=self.input_settings,
-                          mem_scheme=self.mem_scheme, ii_su=self.ii_su, mac_costs=self.mac_costs,
+                          mem_scheme=self.mem_scheme, ii_su=self.ii_su, spatial_unrolling=self.spatial_unrolling, mac_costs=self.mac_costs,
                           observation_state_length=observation_state_length,
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
         
@@ -189,7 +193,6 @@ class PolicyGradient:
             values = []
         
             for timestep in range(1, 10000):  # Don't do infinite loop while learning
-
                 value, action, entropy = self.select_action(state, observation_state_length)
                 state, reward, done, info = env.step(action, timestemp=timestep)
         
@@ -215,7 +218,7 @@ class PolicyGradient:
                     # State Preprocessing
                     encoded_padded_state = deepcopy(state)
                     encoded_padded_state = encoded_padded_state['temporal_mapping']
-                    encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
+                    encoded_padded_state = encoded_padded_state.make_encoded_state_vector(observation_state_length)
 
                     Qval, _ =  self.policy_net.forward(encoded_padded_state)
                     Qval = Qval.detach().numpy()[0]
@@ -245,11 +248,11 @@ class PolicyGradient:
                 writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Best utilization", best_result['utilization'], i_episode)
                 
-            if running_reward >= reward_stop_condition:
-                best_result["temporal_mapping"] = best_result["temporal_mapping"].value
+            if best_result['temporal_mapping'].utilization >= reward_stop_condition:
+                
                 print("Solved! Running reward is now {} and "
                       "the last episode runs to {} time st  eps!".format(running_reward, timestep))
-                print(f"Best result: {best_result}\treward{max_reward}")
+                print(f"Best result: {best_result['temporal_mapping'].value}\treward {best_result['temporal_mapping'].utilization}")
                 break
 
     def run_episode(self, starting_temporal_mapping, observation_state_length=22, gamma=0.9, episode_max_step=100, episode_utilization_stop_condition=0.5):
