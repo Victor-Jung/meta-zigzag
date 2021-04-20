@@ -15,7 +15,7 @@ class MLP(nn.Module):
         self.saved_log_probs = []
         self.rewards = []
 
-        self.path = "/home/scrubele/Documents/project/reinforcement-learning-zigzag/reinforcement_learning_algo/policy_networks/model.h5"
+        self.path = "reinforcement_learning_algo/policy_networks/model.h5"
 
     def forward(self, x):
         x = F.relu(self.dropout(self.fc1(x)))

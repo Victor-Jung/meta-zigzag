@@ -62,5 +62,5 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer
 
     policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.2 , gamma=0.9, log_interval=1,
                              observation_state_length=observation_state_length, episode_utilization_stop_condition=1,
-                             timestamp_number=25, render=False)
+                             timestamp_number=25, render=True)
     # policy_gradient.run_episode(starting_temporal_mapping=temporal_mapping_pf_ordering, episode_max_step=30)

@@ -205,6 +205,7 @@ class PolicyGradient:
 
                 if render:
                     env.display()
+                    print("displayed")
                 break
 
     def run_episode(self, starting_temporal_mapping, episode_max_step):
