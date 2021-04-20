@@ -84,10 +84,13 @@ class TemporalMappingState:
         return self.value
 
     def tm_swap(self, idx1, idx2):
-        temp = self.value[idx1]
-        self.value[idx1] = self.value[idx2]
-        self.value[idx2] = temp
-        return self.value
+        try:
+            temp = self.value[idx1]
+            self.value[idx1] = self.value[idx2]
+            self.value[idx2] = temp
+        except:
+            pass
+        return self
 
     def make_encoded_state_vector(self, max_input_size=22):
         self.encode_temporal_mapping()

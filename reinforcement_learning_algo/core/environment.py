@@ -1,10 +1,14 @@
+from copy import deepcopy
+
 import gym
 import numpy as np
 from gym import spaces, logger
 from gym.utils import seeding
+import gifmaker
 
 from reinforcement_learning_algo.core.state import TemporalMappingState
 from reinforcement_learning_algo.cost_esimator import *
+from reinforcement_learning_algo.utils.renderer import make_frame, make_layout, make_figure_from_frames, add_sliders
 
 
 class Environment(gym.Env):
@@ -77,6 +81,12 @@ class Environment(gym.Env):
         self.steps_beyond_done = None
 
         self.last_actions = []
+        self.last_reward = 0
+
+        # Render part
+        self.frames = []
+        self.layout = make_layout()
+        self.steps = 0
 
     def seed(self, seed=None):
         """
@@ -95,7 +105,25 @@ class Environment(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action, timestemp=None):
+    def calculate_reward(self, energy, utilization, timestemp):
+        reward = utilization
+        # print(reward, self.last_reward)
+        # reward = 1/ pow(reward - self.last_reward, 2) if reward - self.last_reward > 0 else 0
+        # reward = reward - self.last_reward
+        # self.last_reward = reward
+        # reward = 1 if reward > self.last_reward else 0
+        # self.last_reward = utilization
+
+        return reward
+
+    def calculate_costs(self, temporal_mapping):
+        return get_temporal_loop_estimation(temporal_mapping, self.input_settings,
+                                            self.spatial_loop_comb,
+                                            self.mem_scheme,
+                                            layer=[self.im2col_layer, self.layer_rounded],
+                                            mac_costs=self.mac_costs)
+
+    def step(self, action, timestep=None, episode=None):
         """
         Description:
             Run one timestep of the environment's dynamics. When end of episode is reached, you are responsible for
@@ -114,34 +142,33 @@ class Environment(gym.Env):
         assert self.action_space.contains(action.idx), err_msg
 
         self.action = action
+        self.timestep = timestep
+
         is_repetition = False
 
         self.last_actions.append(action.idx)
         if len(self.last_actions) > self.repetition_threshold:
             self.last_actions.pop(0)
-        # print(self.last_actions, set(self.last_actions), len(set(self.last_actions)))
         if len(self.last_actions) >= self.repetition_threshold and len(set(self.last_actions)) < 3:
             is_repetition = True
 
         temporal_mapping_obj = self.state["temporal_mapping"]
         temporal_mapping_obj = self.action.perform(temporal_mapping_obj)
 
-        energy, utilization = get_temporal_loop_estimation(temporal_mapping_obj.value, self.input_settings,
-                                                           self.spatial_loop_comb,
-                                                           self.mem_scheme,
-                                                           layer=[self.im2col_layer, self.layer_rounded],
-                                                           mac_costs=self.mac_costs)
+        energy, utilization = self.calculate_costs(temporal_mapping_obj.value)
         self.state = temporal_mapping_obj.get_state_dict(energy=energy, utilization=utilization)
+        self.utilization = utilization
 
         done = bool(
-            utilization > self.utilization_threshold or timestemp > self.timestamp_threshold or is_repetition
+            utilization > self.utilization_threshold
+            or timestep > self.timestamp_threshold or is_repetition
         )
 
         if not done:
-            reward = utilization
+            reward = self.calculate_reward(energy, utilization, timestep)
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
-            reward = utilization
+            reward = self.calculate_reward(energy, utilization, timestep)
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
@@ -151,7 +178,8 @@ class Environment(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
-        return self.state, reward, done, {}
+        self.steps += 1
+        return self.state, reward, done, utilization
 
     def reset(self):
         """
@@ -173,7 +201,41 @@ class Environment(gym.Env):
                                                            layer=[self.im2col_layer, self.layer_rounded],
                                                            mac_costs=self.mac_costs)
         self.state = temporal_mapping_obj.get_state_dict(energy=energy, utilization=utilization)
+        self.last_actions = []
         return self.state
 
+    def render_frame(self):
+        action = self.action
+        temporal_mapping = self.state['temporal_mapping']
+
+        utilization = self.utilization
+        swap_list = self.action.generate_swap_list()
+        x = [pair[0] for pair in swap_list]
+        y = [pair[1] for pair in swap_list]
+        z = []
+        for swap in swap_list:
+            temporal_mapping_obj = deepcopy(temporal_mapping)
+            temporal_mapping_obj = temporal_mapping_obj.tm_swap(swap[0], swap[1])
+            energy, utilization = self.calculate_costs(temporal_mapping_obj.value)
+            z.append(utilization)
+
+        point_x = action.action[0]
+        point_y = action.action[1]
+        point_z = utilization
+        self.frame = make_frame(temporal_mapping=temporal_mapping_obj.value, frame_id=self.steps, x=x, y=y, z=z,
+                                point_x=point_x, point_y=point_y, point_z=point_z)
+        self.frames.append(self.frame)
+        return self.frame
+
     def render(self, mode='human'):
-        raise NotImplementedError
+        self.figure = make_figure_from_frames(self.frames)
+        self.figure, layout = add_sliders(self.figure, self.layout)
+        # raise NotImplementedError
+
+    def save_animation(self):
+        fp = open("out.gif", "wb")
+        # gifmaker.makedelta(fp, self.frames)
+        # fp.close()
+
+    def display(self):
+        self.figure.show()
