@@ -79,19 +79,62 @@ def plot_dot(point_x, point_y, point_z):
                         )
 
 
-def make_figure(x, y, z_array, point_x, point_y, point_z, nb_frames):
-    # define 2D points, as input data for the Delaunay triangulation of U
+def plot_line(point_x, point_y, point_z, z=None):
+    z = np.arange(point_z, max(z), 0.1)
+    return go.Scatter3d(x=[point_x] * 10, y=[point_y] * 10, z=z,
+                        mode='lines',
+                        line=dict(
+                            color='DarkSlateGrey',
+                            width=7)
+                        )
+
+
+def make_frame(temporal_mapping, frame_id, x, y, z, point_x, point_y, point_z):
     points2D = np.vstack([x, y]).T
     tri = Delaunay(points2D)  # triangulate the rectangle U
+    frame = go.Frame(
+        data=[
+            *plotly_trisurf(x, y, z, tri.simplices, colormap=cm.RdBu, plot_edges=True),
+            plot_line(point_x, point_y, point_z, z)
+        ],
+        name=str(frame_id),
+        layout={
+            "annotations": [
+                go.layout.Annotation(
+                    text=f'Temporal mapping: {str(temporal_mapping)}',
+                    align='left',
+                    showarrow=False,
+                    xref='paper',
+                    yref='paper',
+                    x=0,
+                    y=1,
+                    bordercolor='black',
+                    borderwidth=1
+                ),
+                go.layout.Annotation(
+                    text=f'Utilization: {point_z}',
+                    align='left',
+                    showarrow=False,
+                    xref='paper',
+                    yref='paper',
+                    x=0,
+                    y=0.95,
+                    bordercolor='black',
+                    borderwidth=1
+                )
+            ]
+        }
+
+    )
+    return frame
+
+
+def make_figure(temporal_mapping, x, y, z_array, point_x, point_y, point_z, nb_frames):
+    # define 2D points, as input data for the Delaunay triangulation of U
     figure = go.Figure(
         frames=[
-            go.Frame(
-                data=[
-                    *plotly_trisurf(x, y, z_array[frame_id], tri.simplices, colormap=cm.RdBu, plot_edges=True),
-                    plot_dot(point_x[frame_id], point_y[frame_id], point_z[frame_id])
-                ],
-                name=str(frame_id)
-            )
+            make_frame(temporal_mapping,frame_id=frame_id, x=x, y=y, z=z_array[frame_id],
+                       point_x=point_x[frame_id], point_y=point_y[frame_id], point_z=point_z[frame_id])
             for frame_id in range(nb_frames)
         ]
     )
@@ -99,36 +142,26 @@ def make_figure(x, y, z_array, point_x, point_y, point_z, nb_frames):
     return figure
 
 
-def make_layout(figure):
-    def frame_args(duration):
-        return {
-            "frame": {"duration": duration},
-            "mode": "immediate",
-            "fromcurrent": True,
-            "transition": {"duration": duration, "easing": "linear"},
-        }
+def make_figure_from_frames(frame_list):
+    figure = go.Figure(
+        frames=frame_list
+    )
+    figure.add_traces(figure.frames[0].data)
+    return figure
 
-    def add_sliders(layout):
-        layout.sliders = [
-            {
-                "pad": {"b": 10, "t": 60},
-                "len": 0.9,
-                "x": 0.1,
-                "y": 0,
-                "steps": [
-                    {
-                        "args": [[f.name], frame_args(0)],
-                        "label": str(k),
-                        "method": "animate",
-                    }
-                    for k, f in enumerate(figure.frames)
-                ],
-            }
-        ]
-        return layout
 
+def frame_args(duration):
+    return {
+        "frame": {"duration": duration},
+        "mode": "immediate",
+        "fromcurrent": True,
+        "transition": {"duration": duration, "easing": "linear"},
+    }
+
+
+def make_layout():
     layout = go.Layout(
-        title=f'Temporal mapping <br><span style="font-size: 7px;"></span>',
+        title=f'Temporal mapping neighbourhood <br><span style="font-size: 7px;"></span>',
         scene=dict(
             xaxis_title='Loop idx',
             yaxis_title='Loop idy',
@@ -146,7 +179,7 @@ def make_layout(figure):
             {
                 "buttons": [
                     {
-                        "args": [None, frame_args(50)],
+                        "args": [None, frame_args(100)],
                         "label": "&#9654;",  # play symbol
                         "method": "animate",
                     },
@@ -164,7 +197,26 @@ def make_layout(figure):
             }
         ]
     )
-    layout = add_sliders(layout)
+    return layout
+
+
+def add_sliders(figure, layout):
+    layout.sliders = [
+        {
+            "pad": {"b": 10, "t": 60},
+            "len": 0.9,
+            "x": 0.1,
+            "y": 0,
+            "steps": [
+                {
+                    "args": [[f.name], frame_args(0)],
+                    "label": str(k),
+                    "method": "animate",
+                }
+                for k, f in enumerate(figure.frames)
+            ],
+        }
+    ]
     figure.update_layout(layout)
     return figure, layout
 
@@ -243,9 +295,24 @@ def test():
 
     nb_frames = 68
     z_array, point_x, point_y, point_z = generate_random_data(nb_frames)
-    figure = make_figure(x, y, z_array, point_x, point_y, point_z, nb_frames)
-    figure, layout = make_layout(figure)
+    layout = make_layout()
+    temporal_mapping = []
+    figure = make_figure(temporal_mapping, x, y, z_array, point_x, point_y, point_z, nb_frames)
+    layout.annotations = [
+        go.layout.Annotation(
+            text='Some<br>multi-line<br>text',
+            align='left',
+            showarrow=False,
+            xref='paper',
+            yref='paper',
+            x=1.1,
+            y=0.8,
+            bordercolor='black',
+            borderwidth=1
+        )
+    ]
+    figure.update_layout(layout)
+    figure, layout = add_sliders(figure, layout)
     figure.show()
-
 
 # test()
