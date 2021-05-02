@@ -40,7 +40,7 @@ class Environment(gym.Env):
       """
 
     def __init__(self, layer, im2col_layer=None, layer_rounded=None,
-                 spatial_loop_comb=None, input_settings=None, mem_scheme=None, ii_su=None, mac_costs=None,
+                 spatial_loop_comb=None, input_settings=None, mem_scheme=None, ii_su=None, spatial_unrolling=None, mac_costs=None,
                  observation_state_length=22, utilization_threshold=0.8, timestamp_threshold=50,
                  repetition_threshold=5):
         # Spaces
@@ -66,6 +66,7 @@ class Environment(gym.Env):
         self.mem_scheme = mem_scheme
         self.ii_su = ii_su
         self.mac_costs = mac_costs
+        self.spatial_unrolling = spatial_unrolling
 
         # Thresholds
         self.utilization_threshold = utilization_threshold
@@ -139,6 +140,7 @@ class Environment(gym.Env):
 
         if not done:
             reward = utilization
+            #reward = utilization - self.previous_reward
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
             reward = utilization
@@ -165,7 +167,9 @@ class Environment(gym.Env):
         Returns:
             observation (object): the initial observation.
         """
-        temporal_mapping_obj = TemporalMappingState(layer_architecture=self.layer_architecture)
+        self.steps_beyond_done = None
+        self.previous_reward = 0
+        temporal_mapping_obj = TemporalMappingState(self.spatial_unrolling, layer_architecture=self.layer_architecture)
         temporal_mapping = temporal_mapping_obj.value
         energy, utilization = get_temporal_loop_estimation(temporal_mapping, self.input_settings,
                                                            self.spatial_loop_comb,

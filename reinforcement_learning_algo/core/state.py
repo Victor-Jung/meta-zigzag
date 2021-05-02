@@ -11,9 +11,9 @@ from reinforcement_learning_algo import loop_type_to_ids
 
 class TemporalMappingState:
 
-    def __init__(self, temporal_mapping=None, layer_architecture=None):
+    def __init__(self, spatial_unrolling, temporal_mapping=None, layer_architecture=None):
         if temporal_mapping is None:
-            self.form_temporal_mapping_ordering(layer_architecture)
+            self.form_temporal_mapping_ordering(layer_architecture, spatial_unrolling)
         else:
             self.value = temporal_mapping
         self.find_temporal_mapping_primary_factors()
@@ -34,11 +34,32 @@ class TemporalMappingState:
         self.value = compressed_temporal_mapping
         return self.value
 
-    def form_temporal_mapping_ordering(self, layer_architecture):
+    def form_temporal_mapping_ordering(self, layer_architecture, spatial_unrolling):
+
+        layer_spec_temporal = {}
+        ids_to_loop_type = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
+
         # Extract the naive TM from the layer architecture contained in layer_post
         self.value = []
         for loop_type, loop_id in loop_type_to_ids.items():
-            self.value.append((loop_id, layer_architecture[loop_type]))
+            layer_spec_temporal[loop_id] = layer_architecture[loop_type]   
+
+        # Update the temporal layer spec to remove the already spatially unrolled dimensions.
+        for level in range(0, len(spatial_unrolling['W'])):
+            for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
+                try:
+                    pf = layer_spec_temporal[loop_type_number]
+                except:
+                    continue
+                q, rem = divmod(pf, su_factor)
+                assert rem == 0 # pf/su_factor should have remainder 0
+                layer_spec_temporal[loop_type_number] = q
+
+        # Then filter the 1-size loops
+        for loop_id, loop_size in list(layer_spec_temporal.items()):
+            if loop_size != 1:
+                self.value.append((loop_id, loop_size))
+                
         return self.value
 
     def find_temporal_mapping_primary_factors(self):

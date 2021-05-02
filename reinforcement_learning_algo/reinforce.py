@@ -1,6 +1,9 @@
 from copy import deepcopy
 from itertools import count
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -20,7 +23,7 @@ class PolicyGradient:
     """
 
     def __init__(self, neural_network, temporal_mapping_ordering, layer,
-                 im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su):
+                 im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
         super(PolicyGradient, self).__init__()
 
@@ -43,6 +46,7 @@ class PolicyGradient:
         self.full_layer = [self.im2col_layer, self.layer_rounded]
         self.mac_costs = calculate_mac_level_costs(self.layer, self.layer_rounded,
                                                    self.input_settings, self.mem_scheme, self.ii_su)
+        self.spatial_unrolling = spatial_unrolling
 
     def optimize(self, writer, episode, steps, reward_pool, log_probability_list, verbose=0):
         pass
@@ -55,7 +59,7 @@ class PolicyGradient:
     def select_action(self, state, observation_state_length):
         encoded_padded_state = deepcopy(state)
         encoded_padded_state = encoded_padded_state['temporal_mapping']
-        encoded_padded_state = encoded_padded_state.make_encoded_state_vector()
+        encoded_padded_state = encoded_padded_state.make_encoded_state_vector(observation_state_length)
         action_probs = self.policy_net(encoded_padded_state)
         # legal_actions = self.filter_legal_actions(state, action_probs)
         # print(action_probs)
@@ -116,7 +120,7 @@ class PolicyGradient:
 
         env = Environment(layer=self.layer, im2col_layer=self.im2col_layer, layer_rounded=self.layer_rounded,
                           spatial_loop_comb=self.spatial_loop_comb, input_settings=self.input_settings,
-                          mem_scheme=self.mem_scheme, ii_su=self.ii_su, mac_costs=self.mac_costs,
+                          mem_scheme=self.mem_scheme, ii_su=self.ii_su, spatial_unrolling=self.spatial_unrolling, mac_costs=self.mac_costs,
                           observation_state_length=observation_state_length,
                           utilization_threshold=episode_utilization_stop_condition, timestamp_threshold=timestamp_number)
         
@@ -130,6 +134,7 @@ class PolicyGradient:
             state, episode_reward = env.reset(), 0
             episode_rewards = []
             env.last_actions = []
+
             for timestamp in range(1, 10000):  # Don't do infinite loop while learning
 
                 action = self.select_action(state, observation_state_length)
@@ -162,12 +167,10 @@ class PolicyGradient:
                 writer.add_scalar("Loss", loss, i_episode)
                 writer.add_scalar("Reward", running_reward, i_episode)
 
-            is_zero_loss = round(loss.tolist(), 4)  == 0
-            if running_reward >= reward_stop_condition or is_zero_loss :
-                best_result["temporal_mapping"] = best_result["temporal_mapping"].value
+            if best_result['temporal_mapping'].utilization >= reward_stop_condition:
                 print("Solved! Running reward is now {} and "
                       "the last episode runs to {} time st  eps!".format(running_reward, timestamp))
-                print(f"Reward: {max_reward}\t Best result: {best_result}\t")
+                print(f"Best result: {best_result['temporal_mapping'].value}\treward {best_result['temporal_mapping'].utilization}")
                 break
 
     def run_episode(self, starting_temporal_mapping, episode_max_step):
