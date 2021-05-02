@@ -59,7 +59,6 @@ class TemporalMappingState:
         for loop_id, loop_size in list(layer_spec_temporal.items()):
             if loop_size != 1:
                 self.value.append((loop_id, loop_size))
-
         return self.value
 
     def find_temporal_mapping_primary_factors(self):
@@ -105,10 +104,13 @@ class TemporalMappingState:
         return self.value
 
     def tm_swap(self, idx1, idx2):
-        temp = self.value[idx1]
-        self.value[idx1] = self.value[idx2]
-        self.value[idx2] = temp
-        return self.value
+        try:
+            temp = self.value[idx1]
+            self.value[idx1] = self.value[idx2]
+            self.value[idx2] = temp
+        except:
+            pass
+        return self
 
     def make_encoded_state_vector(self, max_input_size=22):
         self.encode_temporal_mapping()

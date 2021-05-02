@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
-
+from torch import Tensor
 
 class MLP(nn.Module):
     def __init__(self, observation_space_length, action_space_length):
-
         super(MLP, self).__init__()
 
         self.action_space_length = action_space_length
@@ -31,3 +29,22 @@ class MLP(nn.Module):
         value = self.critic_fc2(value)
 
         return value, action_scores
+        self.path = "reinforcement_learning_algo/policy_networks/model.h5"
+
+    def save(self):
+        torch.save(self.state_dict(),
+                   self.path)
+
+    def load(self):
+        self.load_state_dict(torch.load(self.path))
+        self.eval()
+
+    # make a class prediction for one row of data
+    def predict(self, row, model):
+        # convert row to data
+        # row = Tensor(row)
+        # make prediction
+        yhat = model(row)
+        # retrieve numpy array
+        yhat = yhat.detach().numpy()
+        return yhat

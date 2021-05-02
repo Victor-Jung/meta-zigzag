@@ -12,7 +12,6 @@ from reinforcement_learning_algo.reinforce import (
     PolicyGradient,
 )
 
-
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
                                   spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
@@ -31,6 +30,6 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer, im2col_layer
         neural_network, temporal_mapping_pf_ordering, layer,
         im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
-    policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.5783, gamma=0.9, log_interval=1,
+    policy_gradient.training(learning_rate=1e-2, reward_stop_condition=0.3, gamma=0.9, log_interval=1,
                              observation_state_length=observation_state_length, episode_utilization_stop_condition=0.8,
-                             timestamp_number=10)
+                             timestamp_number=10, render=True, save_weights=False)
