@@ -115,7 +115,7 @@ class PolicyGradient:
         # returns = self.calculate_rewards(episode, gamma)
         # policy_loss = self.calculate_loss(returns)
 
-        R = torch.zeros(231)
+        R = torch.zeros(int(self.observation_state_length*(self.observation_state_length-1)/2))
         loss = 0
         for i in reversed(range(len(self.policy_net.rewards))):
             R = gamma * R + self.policy_net.rewards[i]
@@ -136,7 +136,8 @@ class PolicyGradient:
 
     def training(self, learning_rate=1e-2, reward_stop_condition=0.5, gamma=0.9, log_interval=1,
                  observation_state_length=22, episode_utilization_stop_condition=0.8, timestamp_number=50,
-                 render=True):
+                 render=False, save_weights=False):
+
         writer = SummaryWriter()
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         env = Environment(layer=self.layer, im2col_layer=self.im2col_layer, layer_rounded=self.layer_rounded,
@@ -147,10 +148,12 @@ class PolicyGradient:
                           timestamp_threshold=timestamp_number)
 
         step = 0
-        best_result = ()
         max_reward = 0
         result_reward = 0
         running_reward = 0
+        best_result = ()
+        self.observation_state_length = observation_state_length
+
         for i_episode in count(1):
             done = False
             state, episode_reward = env.reset(), 0
@@ -163,6 +166,7 @@ class PolicyGradient:
                 action, log_prob, entropy = self.select_action(state, observation_state_length)
                 writer.add_scalar("Action", action.idx, step)
                 state, reward, done, info = env.step(action, timestep=timestamp)
+
                 if render:
                     env.render_frame()
                 if done:
@@ -171,6 +175,7 @@ class PolicyGradient:
                 if reward > max_reward:
                     max_reward = reward
                     best_result = state
+
                 self.policy_net.rewards.append(reward)
                 self.entropies.append(entropy)
                 self.log_probs.append(log_prob)
@@ -190,6 +195,7 @@ class PolicyGradient:
             writer.add_scalar("Max reward", max(episode_rewards), step)
 
             loss = self.finish_episode(i_episode, gamma)
+
             if render:
                 env.render()
 
@@ -210,11 +216,12 @@ class PolicyGradient:
                     writer.add_scalar("Reward", running_reward, i_episode)
                 if render:
                     env.display()
-                    print("displayed")
-                self.policy_net.save()
+                if save_weights:
+                    self.policy_net.save()
+                break
 
     def run_episode(self, starting_temporal_mapping, episode_max_step):
-        self.policy_net.load()
+        '''self.policy_net.load()
         print(self.policy_net)
 
         encoded_padded_state = deepcopy(starting_temporal_mapping)
@@ -224,6 +231,6 @@ class PolicyGradient:
 
         print()
         # value = self.policy_net(starting_temporal_mapping)
-        # print(value)
+        # print(value)'''
 
         pass
