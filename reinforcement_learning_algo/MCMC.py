@@ -1,6 +1,8 @@
 from reinforcement_learning_algo.cost_esimator import *
 from reinforcement_learning_algo import loop_type_to_ids
 
+from loma import limit_lpf, get_prime_factors
+
 from copy import deepcopy
 import numpy as np
 import random
@@ -16,10 +18,8 @@ def tmo_swap(tmo, i, j):
 
      return swapped_tmo
 
-
 def evaluate_tmo(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs):
      return get_temporal_loop_estimation(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs)
-
 
 def form_tmo(layer_architecture, spatial_unrolling):
 
@@ -44,26 +44,60 @@ def form_tmo(layer_architecture, spatial_unrolling):
         
         # Then filter the 1-size loops
         for loop_id, loop_size in list(layer_spec_temporal.items()):
+            if loop_size == 1:
+                layer_spec_temporal.pop(loop_id)
+        
+        return layer_spec_temporal
+
+def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
+
+     lpf_tmo = []
+     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
+     layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal, limit_lpf)
+
+     for loop_type in list(layer_spec_pf.keys()):
+          for i in range(len(layer_spec_pf[loop_type])):
+               loop_size = layer_spec_pf[loop_type]
+               for number_of_loop in range(layer_spec_pf_count[loop_type][i]):
+                    lpf_tmo.append((loop_type, loop_size[i]))
+
+     return lpf_tmo
+
+def get_min_lpf_size(layer_architecture, spatial_unrolling):
+
+     tmo = []
+     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
+
+     for loop_id, loop_size in list(layer_spec_temporal.items()):
             if loop_size != 1:
                 tmo.append((loop_id, loop_size))
-        return tmo
+     
+     print("TMO small :", tmo)
+     return len(tmo)
 
-def expand_tmo(tmo, lpf):
+def get_max_lpf_size(layer_architecture, spatial_unrolling):
 
-     curr_size = len(tmo)
-     expanded_tmo = deepcopy(tmo)
+     tmo = []
+     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
 
-     for i in range(lpf - curr_size):
-          for j in range(len(expanded_tmo)):
-               if not isprime(expanded_tmo[j][1]):
-                    factors = factorint(expanded_tmo[j][1])
-                    expanded_tmo.insert(j, (expanded_tmo[j][0], factors[0]))
-                    # limit lpf function from loma
-                    # replace the old loop by the big broken part
-                    # pass layer_post == layer_spec
+     for loop_id, loop_size in list(layer_spec_temporal.items()):
+            if loop_size != 1:
+                tmo.append((loop_id, loop_size))
 
-     return
+     # Break it down to LPF (Loop Prime Factor)
+     tmo_pf = []
+     for inner_loop in tmo:
+          if inner_loop[1] == 1:
+               tmo_pf.append(inner_loop)
+          else:
+               factors = factorint(inner_loop[1])
+               for factor in factors.items():
+                    for pow in range(factor[1]):
+                         tmo_pf.append((inner_loop[0], factor[0]))
+     
+     return len(tmo_pf)
 
+     
 
 def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
          spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -103,6 +137,6 @@ def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
                     best_utilization = curr_utilization
                     #print("Utilization :", best_utilization)
 
-     print("Best Utilization Found :", best_utilization)
+     #print("Best Utilization Found :", best_utilization)
 
      return best_utilization, best_tmo
