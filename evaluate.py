@@ -528,7 +528,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
 
-        return rl_temporal_mapping_optimizer(None, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
+        return rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
                                              input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     now = datetime.now()
