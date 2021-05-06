@@ -3,10 +3,12 @@ from reinforcement_learning_algo import loop_type_to_ids
 
 from loma import limit_lpf, get_prime_factors
 
+from sympy import factorint, isprime
+import matplotlib.pyplot as plt
 from copy import deepcopy
 import numpy as np
 import random
-from sympy import factorint, isprime
+import time
 
 
 def tmo_swap(tmo, i, j):
@@ -28,24 +30,25 @@ def form_tmo(layer_architecture, spatial_unrolling):
 
         # Extract the naive TM from the layer architecture contained in layer_post
         tmo = []
-        for loop_type, loop_id in loop_type_to_ids.items():
-            layer_spec_temporal[loop_id] = layer_architecture[loop_type]   
+        for loop_type in ['B','K','C','OY','OX','FY','FX']:
+            layer_spec_temporal[loop_type] = layer_architecture[loop_type]   
 
         # Update the temporal layer spec to remove the already spatially unrolled dimensions.
         for level in range(0, len(spatial_unrolling['W'])):
             for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
+                loop_type = ids_to_loop_type[loop_type_number]
                 try:
-                    pf = layer_spec_temporal[loop_type_number]
+                    pf = layer_spec_temporal[loop_type]
                 except:
                     continue
                 q, rem = divmod(pf, su_factor)
                 assert rem == 0 # pf/su_factor should have remainder 0
-                layer_spec_temporal[loop_type_number] = q
+                layer_spec_temporal[loop_type] = q
         
         # Then filter the 1-size loops
-        for loop_id, loop_size in list(layer_spec_temporal.items()):
+        for loop_type, loop_size in list(layer_spec_temporal.items()):
             if loop_size == 1:
-                layer_spec_temporal.pop(loop_id)
+                layer_spec_temporal.pop(loop_type)
         
         return layer_spec_temporal
 
@@ -59,7 +62,7 @@ def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
           for i in range(len(layer_spec_pf[loop_type])):
                loop_size = layer_spec_pf[loop_type]
                for number_of_loop in range(layer_spec_pf_count[loop_type][i]):
-                    lpf_tmo.append((loop_type, loop_size[i]))
+                    lpf_tmo.append((loop_type_to_ids[loop_type], loop_size[i]))
 
      return lpf_tmo
 
@@ -71,8 +74,7 @@ def get_min_lpf_size(layer_architecture, spatial_unrolling):
      for loop_id, loop_size in list(layer_spec_temporal.items()):
             if loop_size != 1:
                 tmo.append((loop_id, loop_size))
-     
-     print("TMO small :", tmo)
+
      return len(tmo)
 
 def get_max_lpf_size(layer_architecture, spatial_unrolling):
@@ -100,12 +102,20 @@ def get_max_lpf_size(layer_architecture, spatial_unrolling):
      
 
 def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
-         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
+         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False):
+
+     start_time = time.time()
 
      # Hyperparameters
      iter = 2000
      temperature = 0.05
      rho = 0.999
+
+     p_list = []
+     best_utilization_list = []
+     explotation_counter = 0
+     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=int)
+     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=int)
 
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
@@ -117,6 +127,11 @@ def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
      curr_energy, curr_utilization = evaluate_tmo(curr_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
      best_tmo = curr_tmo
      best_utilization = curr_utilization   
+
+     test_tmo = [(5, 8), (6, 192), (1, 3), (5, 16), (3, 13)]
+     [(3, 13), (6, 16), (5, 128), (1, 3), (6, 12)]
+     test_energy, test_utilization = evaluate_tmo(test_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     #print("TEST TMO :", test_utilization)
 
      for k in range(iter):
           i = np.random.randint(0, len(curr_tmo))
@@ -131,12 +146,45 @@ def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
           if(x < p):        
                curr_tmo = temp_tmo.copy()
                curr_utilization = temp_utilization
+               explotation_counter += 1
+               explotation_swap_array[i, j] += 1
                
                if(curr_utilization > best_utilization):
                     best_tmo = curr_tmo
                     best_utilization = curr_utilization
-                    #print("Utilization :", best_utilization)
+          else:
+               exploration_swap_array[i, j] += 1         
+          
+          best_utilization_list.append(best_utilization)
+          p_list.append(p)
 
-     #print("Best Utilization Found :", best_utilization)
+     end_time = time.time()
+     exec_time = end_time - start_time
 
-     return best_utilization, best_tmo
+     print("Best utilization :", best_utilization)
+     print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+
+     if plot:
+          plt.figure(1)
+          plt.title('Best Utilization Found during the run')
+          plt.xlabel("Iteration")
+          plt.ylabel("Utilization")
+          plt.plot([*range(iter)], best_utilization_list)
+          plt.figure(2)
+          plt.title("Iteration")
+          plt.xlabel("Temporal Mapping Size")
+          plt.ylabel("Alpha")
+          plt.plot([*range(iter)], p_list)
+          plt.figure(3)
+          plt.title('Heatmap of Explotation Swap(i, j)')
+          plt.xlabel("i")
+          plt.ylabel("j")
+          plt.imshow(explotation_swap_array, cmap='hot', interpolation='nearest')
+          plt.figure(4)
+          plt.title('Heatmap of Exploration Swap(i, j)')
+          plt.xlabel("i")
+          plt.ylabel("j")
+          plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
+          plt.show()
+
+     return best_utilization, best_tmo, exec_time

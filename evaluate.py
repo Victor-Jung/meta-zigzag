@@ -21,6 +21,7 @@ from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
 import loma as loma
 from reinforcement_learning_algo.optimizer import rl_temporal_mapping_optimizer
+import yaml
 
 
 def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_loop_fractional, spatial_loop_comb,
@@ -412,6 +413,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             previous_best_ut = current_best_ut
 
     if loma_search_engine and not input_settings.fixed_temporal_mapping:
+
+        start_time = time.time()
+
         lpf_limit = input_settings.max_nb_lpf_layer
         tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling,
                                                                                   lpf_limit)
@@ -468,6 +472,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         pool = Pool(processes=n_processes)
         results = pool.starmap(loma.tl_worker_new, [[tl_chunk] + fixed_args for tl_chunk in tl_list_split])
 
+        end_time = time.time()
         #################################     POST PROCESSING     ##################################
         best_output_energy = None
         best_output_utilization = None
@@ -499,6 +504,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                 best_utilization = max_ut
                 best_output_utilization = max_ut_output
 
+
             # Save the collected (energy,ut) from every temporal mapping if required
             if pickle_enable:
                 # Save energy
@@ -519,6 +525,17 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                 #     for elem in combined:
                 #         pickle.dump(elem, f)
                 #     f.close()
+
+
+        # Store result in visualisation_data
+        with open("visualisation_data.yaml") as f:
+            data_doc = yaml.safe_load(f)
+
+        data_doc["loma_utilization_list"].append(best_utilization)
+        data_doc["loma_exec_time_list"].append(end_time - start_time)
+
+        with open("visualisation_data.yaml", "w") as f:
+            yaml.dump(data_doc, f)
 
         # Convert output, which is just best allocated order at this point, to a CostModelOutput object
         best_output_energy = loma.get_cost_model_output(best_output_energy, input_settings, mem_scheme, layer_comb,

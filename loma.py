@@ -363,6 +363,7 @@ def get_prime_factors(layer_spec, lpf_limit):
     layer_spec_pf = {}
     layer_spec_pf_count = {}
     layer_spec_pf_count_sum = {}
+
     for loop_type, loop_dimension in layer_spec.items():
         if loop_dimension == 0 or loop_dimension == 1:
             continue
@@ -461,6 +462,8 @@ def og(layer_spec, spatial_unrolling, lpf_limit):
 
         # Add all the found permutatios for this loop_type to tl_dict
         tl_dict[loop_type] = permutations_list
+
+
 
     return tl_dict, count_dict, loop_type_order, total_count
 
