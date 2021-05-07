@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 import yaml
@@ -7,10 +8,42 @@ from reinforcement_learning_algo.MCMC import *
 from reinforcement_learning_algo.random_search import *
 from reinforcement_learning_algo import loop_type_to_ids
 
+
+def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
+                    spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
+    
+    max_iter = 500
+    iter_interval = 10
+    number_of_sample = 20
+    
+    max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling)
+    tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, max_lpf)
+    prob_list = []
+
+    # Get the "Global Optimum"
+    global_optimum, tmo, exec_time = mcmc(tmo, 3000, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
+                                        input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
+
+    for i in range(iter_interval, max_iter, iter_interval):
+        go_counter = 0
+        for s in range(number_of_sample):
+            utilization, tmo, exec_time = mcmc(tmo, i, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
+                                            input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
+            if utilization == global_optimum:
+                go_counter += 1
+        prob_list.append(go_counter/number_of_sample)
+
+    plt.plot([*range(iter_interval, max_iter, iter_interval)] ,prob_list)
+    plt.show()
+
+
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
                                   spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
     print("--------- Monte Carlo Markov Chain (MCMC) Temporal Mapping Optimization ---------")
+
+    mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
+                    spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     # Evaluate the min lpf size and the max lpf for the current layer
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
@@ -19,7 +52,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     #min_lpf = 6
     #max_lpf = 8
 
-    number_of_run = 2
+    number_of_run = 1
     curr_lpf = min_lpf
 
     exec_time_list = []
@@ -45,7 +78,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
         worst_utilization = 1
 
         for i in range(number_of_run):
-            utilization, tmo, exec_time = mcmc(tmo, layer, im2col_layer, layer_rounded, 
+            utilization, tmo, exec_time = mcmc(tmo, 2000, layer, im2col_layer, layer_rounded, 
                                 spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
 
             best_utilization_sum += utilization
@@ -78,3 +111,6 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     
     with open("visualisation_data.yaml", "w") as f:
         yaml.dump(data_doc, f)
+
+
+    

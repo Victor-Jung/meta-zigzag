@@ -101,21 +101,21 @@ def get_max_lpf_size(layer_architecture, spatial_unrolling):
 
      
 
-def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
+def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
          spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False):
 
      start_time = time.time()
 
      # Hyperparameters
-     iter = 2000
+     #iter = 2000
      temperature = 0.05
      rho = 0.999
 
      p_list = []
      best_utilization_list = []
      explotation_counter = 0
-     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=int)
-     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=int)
+     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
+     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
 
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
@@ -134,7 +134,8 @@ def mcmc(temporal_mapping_ordering, layer, im2col_layer, layer_rounded,
      #print("TEST TMO :", test_utilization)
 
      for k in range(iter):
-          i = np.random.randint(0, len(curr_tmo))
+          i = np.random.randint(0, len(curr_tmo)) 
+          #range(0, len(curr_tmo)) -> delete(i)
           j = np.random.randint(0, len(curr_tmo))
           temp_tmo = tmo_swap(curr_tmo, i, j)
           temp_energy, temp_utilization = evaluate_tmo(temp_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)

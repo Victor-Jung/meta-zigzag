@@ -26,15 +26,15 @@ spatial_mapping_fixed:
   input:
     MAC: []
     0:
-      Col: [[C,3]]
-      Row: [[K,8]]
+      Col: [[C,16]]
+      Row: [[K,16]]
     1: []
     2: []
   output:
     MAC: []
     0:
-      Col: [[C,3]]
-      Row: [[K,8]]
+      Col: [[C,16]]
+      Row: [[K,16]]
     1: []
     2: []
 
