@@ -4,10 +4,10 @@ import subprocess
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
-loma_lpf_limit = 8
+loma_lpf_limit = 10
 load_only = False
-nn_name = "ResNet18" # ResNet18 layer 2 to 22
-layer_idxs = [6, 7]
+nn_name = "AlexNet"
+layer_idxs = [3, 4]
 result_path = "test"
 
 def performance_plot(nn_name, layer_idx, loma_lpf_limit, result_path, load_only):
@@ -15,7 +15,7 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, result_path, load_only)
     ######### Fixed Parameters #########
     settings_file_path = "inputs/settings.yaml"
     data_file_path = "visualisation_data.yaml"
-    run_zigzag_command = "python3 top_module.py --arch ./inputs/architecture.yaml --map ./inputs/mapping2.yaml --set ./inputs/settings.yaml --mempool ./inputs/memory_pool.yaml"
+    run_zigzag_command = "python3 top_module.py --arch ./inputs/architecture.yaml --map ./inputs/mapping.yaml --set ./inputs/settings.yaml --mempool ./inputs/memory_pool.yaml"
 
 
     ######### Prepare MCMC settings run it #########
@@ -82,7 +82,7 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, result_path, load_only)
     loma_exec_time_list = data_doc["loma_exec_time_list"]
 
     # Save yaml file
-    with open(result_path + "/" + nn_name + "_L" + str(layer_idx) + ".yaml", "x") as f:
+    with open(result_path + "/" + nn_name + "_L" + str(layer_idx) + ".yaml", "w") as f:
         yaml.dump(data_doc, f)
 
     ######### Result Plotting #########

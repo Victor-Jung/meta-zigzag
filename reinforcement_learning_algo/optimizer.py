@@ -12,19 +12,30 @@ from reinforcement_learning_algo import loop_type_to_ids
 def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
                     spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
     
-    max_iter = 500
-    iter_interval = 10
-    number_of_sample = 20
+    max_iter = 2000 + 1
+    min_iter = 100
+    iter_interval = 100
+    number_of_sample = 1000
+    result_path = "test"
+    nn_name = "AlexNet"
     
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling)
     tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, max_lpf)
     prob_list = []
 
-    # Get the "Global Optimum"
+    # YAML Dict
+    data = dict(
+        proba_list = [],
+        number_of_iter = []
+    )
+
+    # Get the ""Global Optimum""
     global_optimum, tmo, exec_time = mcmc(tmo, 3000, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
                                         input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
+    #global_optimum = 0.57843696520251 # For AlexNet L3 with default SU and max LPF
+    #print("Global Optimum :", global_optimum)
 
-    for i in range(iter_interval, max_iter, iter_interval):
+    for i in range(min_iter, max_iter, iter_interval):
         go_counter = 0
         for s in range(number_of_sample):
             utilization, tmo, exec_time = mcmc(tmo, i, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
@@ -32,9 +43,22 @@ def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             if utilization == global_optimum:
                 go_counter += 1
         prob_list.append(go_counter/number_of_sample)
+        print("For", i, "iter of MCMC, proba to reach GO is", go_counter/number_of_sample)
 
-    plt.plot([*range(iter_interval, max_iter, iter_interval)] ,prob_list)
-    plt.show()
+    data["proba_list"] = prob_list
+    data["number_of_iter"] = [*range(min_iter, max_iter, iter_interval)]
+    plt.plot([*range(min_iter, max_iter, iter_interval)], prob_list, 'D--', label='mcmc')
+    plt.title("Reliability of MCMC depending on the number of iteration")
+    plt.xlabel("Number of iteration")
+    plt.ylabel("Probability of reaching GO")
+    plt.legend(loc='upper left')
+    
+    # Saving Data
+    plt.savefig(result_path + "/go_prob_" + nn_name + "_S" + str(number_of_sample) + "_I" + str(iter_interval) + "_R" + str(min_iter) + "-" + str(max_iter) + ".png")
+    with open(result_path + "/go_prob_" + nn_name + "_S" + str(number_of_sample) + "_I" + str(iter_interval) + "_R" + str(min_iter) + "-" + str(max_iter) + ".yaml", 'w') as f:
+        yaml.dump(data, f)
+
+    
 
 
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
@@ -44,12 +68,13 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
     mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
                     spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+    return
 
     # Evaluate the min lpf size and the max lpf for the current layer
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling)
 
-    #min_lpf = 6
+    min_lpf = max_lpf - 1
     #max_lpf = 8
 
     number_of_run = 1
@@ -79,7 +104,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
         for i in range(number_of_run):
             utilization, tmo, exec_time = mcmc(tmo, 2000, layer, im2col_layer, layer_rounded, 
-                                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
+                                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=True)
 
             best_utilization_sum += utilization
             exec_time_sum += exec_time

@@ -111,8 +111,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      temperature = 0.05
      rho = 0.999
 
-     p_list = []
-     best_utilization_list = []
+     accepted_p_list = []
+     accepted_utilization_list = []
      explotation_counter = 0
      exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
      explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
@@ -149,6 +149,10 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                curr_utilization = temp_utilization
                explotation_counter += 1
                explotation_swap_array[i, j] += 1
+
+               accepted_utilization_list.append(curr_utilization)
+               if p <= 1:
+                    accepted_p_list.append(p)
                
                if(curr_utilization > best_utilization):
                     best_tmo = curr_tmo
@@ -156,26 +160,24 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           else:
                exploration_swap_array[i, j] += 1         
           
-          best_utilization_list.append(best_utilization)
-          p_list.append(p)
 
      end_time = time.time()
      exec_time = end_time - start_time
 
-     print("Best utilization :", best_utilization)
-     print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     #print("Best utilization :", best_utilization)
+     #print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
 
      if plot:
           plt.figure(1)
-          plt.title('Best Utilization Found during the run')
+          plt.title('Utilization of accepted state evolution during the run')
           plt.xlabel("Iteration")
           plt.ylabel("Utilization")
-          plt.plot([*range(iter)], best_utilization_list)
+          plt.plot([*range(len(accepted_utilization_list))], accepted_utilization_list)
           plt.figure(2)
-          plt.title("Iteration")
+          plt.title('Alpha evolution during the run')
           plt.xlabel("Temporal Mapping Size")
           plt.ylabel("Alpha")
-          plt.plot([*range(iter)], p_list)
+          plt.plot([*range(len(accepted_p_list))], accepted_p_list)
           plt.figure(3)
           plt.title('Heatmap of Explotation Swap(i, j)')
           plt.xlabel("i")
