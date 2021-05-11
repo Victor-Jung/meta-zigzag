@@ -176,7 +176,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.title('Alpha evolution during the run')
           plt.xlabel("Temporal Mapping Size")
           plt.ylabel("Alpha")
-          plt.plot([*range(len(accepted_p_list))], accepted_p_list)
+          plt.plot([*range(len(accepted_p_list))], accepted_p_list, "o")
           plt.figure(3)
           plt.title('Heatmap of Explotation Swap(i, j)')
           plt.xlabel("i")

@@ -103,7 +103,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
         for i in range(number_of_run):
             utilization, tmo, exec_time = mcmc(tmo, 2000, layer, im2col_layer, layer_rounded, 
-                                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
+                                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=True)
 
             best_utilization_sum += utilization
             exec_time_sum += exec_time

@@ -17,6 +17,6 @@ loma_utilization_list:
 lpf_range:
 - 15
 mcmc_exec_time_list:
-- 3.112332582473755
+- 3.333887815475464
 mcmc_utilization_list:
 - 0.57843696520251

@@ -69,7 +69,7 @@ def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_
             loop_fractional = cls.Loop.extract_loop_info(layer_origin, temporal_loop_fractional,
                                                          spatial_loop_fractional,
                                                          input_settings.precision,
-                                                         input_settings.fixed_temporal_mapping)
+                                                         input_settings.fixed_temporal_mapping)                                       
             if mem_energy_saving_when_BW_under_utilized is False:
                 loop_fractional = mem_access_count_correct(loop_fractional, loop)
 
@@ -465,8 +465,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                                               input_settings.mac_array_info['idle_mac_energy'],
                                               mem_scheme.spatial_unrolling)[ii_su]
         mac_costs = [active_mac_cost, idle_mac_cost]
-        fixed_args = [nonmerged_count_dict, loop_type_order, tl_combinations, input_settings, spatial_loop_comb,
-                      mem_scheme, precision, layer_comb, mac_costs]
+        fixed_args = [nonmerged_count_dict, loop_type_order, tl_combinations, input_settings, spatial_loop_comb, mem_scheme, precision, layer_comb, mac_costs, ii_su]
 
         ################################# CALL PARALLEL PROCESSES ##################################
         pool = Pool(processes=n_processes)
@@ -725,11 +724,10 @@ def mem_scheme_evaluate(input_settings, layer_index, layer, im2col_layer, mem_sc
                     input_settings.memory_unroll_fully_flexible)
                 if not spatial_unrolling_:
                     continue
-                if layer_rounded.greedy_mapping_flag[idd]:
-                    spatial_unrolling_, fraction_spatial_unrolling_ = \
-                        msg.su_reformat(spatial_unrolling_, ideal_su[aux_layer_idx], fraction_su[aux_layer_idx])
-                else:
-                    fraction_spatial_unrolling_ = spatial_unrolling_
+
+                spatial_unrolling_, fraction_spatial_unrolling_ = \
+                    msg.su_reformat(spatial_unrolling_, ideal_su[aux_layer_idx], fraction_su[aux_layer_idx])
+
                 spatial_unrolling += spatial_unrolling_
                 flooring += flooring_
                 fraction_spatial_unrolling += fraction_spatial_unrolling_
@@ -766,11 +764,10 @@ def mem_scheme_evaluate(input_settings, layer_index, layer, im2col_layer, mem_sc
                     layer_info[layer_index][aux_layer_idx],
                     [input_settings.unrolling_scheme_list[su_hint_idx]],
                     input_settings.memory_unroll_fully_flexible)
-                if layer_rounded.greedy_mapping_flag[idd]:
-                    spatial_unrolling_, fraction_spatial_unrolling_ = \
-                        msg.su_reformat(spatial_unrolling_, ideal_su[aux_layer_idx], fraction_su[aux_layer_idx])
-                else:
-                    fraction_spatial_unrolling_ = spatial_unrolling_
+
+                spatial_unrolling_, fraction_spatial_unrolling_ = \
+                    msg.su_reformat(spatial_unrolling_, ideal_su[aux_layer_idx], fraction_su[aux_layer_idx])
+
                 spatial_unrolling += spatial_unrolling_
                 flooring += flooring_
                 fraction_spatial_unrolling += fraction_spatial_unrolling_
@@ -1154,3 +1151,4 @@ def optimal_su_evaluate(input_settings, layers, multi_manager):
             # Set the multi_manager's parameter with the correct mem_scheme_index
         multi_manager.best_mem_scheme_index_en = best_mem_scheme_index_en
         multi_manager.best_mem_scheme_index_ut = best_mem_scheme_index_ut
+
