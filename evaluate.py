@@ -20,7 +20,7 @@ from classes.layer_rounding import mem_access_count_correct
 from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
 import loma as loma
-from reinforcement_learning_algo.optimizer import rl_temporal_mapping_optimizer
+from temporal_mapping_optimizer.optimizer import rl_temporal_mapping_optimizer
 import yaml
 
 
