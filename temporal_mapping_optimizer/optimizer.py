@@ -96,9 +96,9 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
 
-    #max_lpf = 10
-    #min_lpf = 7
-    number_of_runs = 5
+    max_lpf = 8
+    min_lpf = 7
+    number_of_runs = 100
     curr_lpf = min_lpf
     opt = "pareto"
 
@@ -125,13 +125,13 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
             value, tmo, exec_time = mcmc(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
                                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
-
+            
             if ((opt == "energy" or opt == "pareto") and value < best_value) or (opt == "utilization" and value > best_value):
                 best_tmo = tmo
                 best_value = value
                 best_exec_time = exec_time
 
-        best_value_list.append(best_value.item())
+        best_value_list.append(best_value)
         exec_time_list.append(best_exec_time)
         
         if opt == "energy":

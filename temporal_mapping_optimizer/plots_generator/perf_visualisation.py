@@ -5,7 +5,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 
 opt = "pareto"
-loma_lpf_limit = 10
+loma_lpf_limit = 8
 load_only = False
 nn_name = "ResNet18"
 layer_idxs = [2]

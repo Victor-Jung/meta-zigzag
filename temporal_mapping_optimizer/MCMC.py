@@ -107,7 +107,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      # Hyperparameters
      #iter = 2000
-     temperature = 0.05
+     temperature = 0.05*10
      rho = 0.999
 
      accepted_p_list = []
@@ -151,7 +151,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           elif opt == "utilization":
                new_value = new_utilization
           elif opt == "pareto":
-               new_value = new_energy/new_utilization
+               new_value = new_energy.item()/new_utilization
 
           x = np.random.rand() # x belongs to [0, 1]
           
@@ -187,6 +187,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      #print("Best utilization :", best_utilization)
      print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     print("Best value :", best_value)
 
      if plot:
           plt.figure(1)
