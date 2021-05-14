@@ -101,7 +101,7 @@ def get_max_lpf_size(layer_architecture, spatial_unrolling):
     
 
 def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
-         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False):
+         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False):
 
      start_time = time.time()
 
@@ -111,7 +111,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      rho = 0.999
 
      accepted_p_list = []
-     accepted_utilization_list = []
+     accepted_value_list = []
      explotation_counter = 0
      exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
      explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
@@ -119,43 +119,65 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
      # Extract the list of tuple from the tmo
-     curr_tmo = temporal_mapping_ordering
+     start_tmo = temporal_mapping_ordering
      # Initalization of a random starting point
-     random.shuffle(curr_tmo)
+     random.shuffle(start_tmo)
 
-     curr_energy, curr_utilization = evaluate_tmo(curr_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-     best_tmo = curr_tmo
-     best_utilization = curr_utilization   
+     start_energy, start_utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
-     test_tmo = [(5, 8), (6, 192), (1, 3), (5, 16), (3, 13)]
-     [(3, 13), (6, 16), (5, 128), (1, 3), (6, 12)]
-     test_energy, test_utilization = evaluate_tmo(test_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-     #print("TEST TMO :", test_utilization)
+     if opt == "energy":
+          best_value = start_energy
+          old_value = start_energy
+     elif opt == "utilization":
+          best_value = start_utilization
+          old_value = start_utilization
+     elif opt == "pareto":
+          best_value = start_energy/start_utilization
+          old_value = start_energy/start_utilization
+
+     best_tmo = start_tmo
+     old_tmo = start_tmo
 
      for k in range(iter):
-          i = np.random.randint(0, len(curr_tmo)) 
-          #range(0, len(curr_tmo)) -> delete(i)
-          j = np.random.randint(0, len(curr_tmo))
-          temp_tmo = tmo_swap(curr_tmo, i, j)
-          temp_energy, temp_utilization = evaluate_tmo(temp_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          i = np.random.randint(0, len(old_tmo)) 
+          j = np.random.randint(0, len(old_tmo))
 
-          x = np.random.rand()
-          p = np.exp((temp_utilization - curr_utilization) / temperature)
+          new_tmo = tmo_swap(old_tmo, i, j)
+
+          new_energy, new_utilization = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+
+          if opt == "energy":
+               new_value = new_energy
+          elif opt == "utilization":
+               new_value = new_utilization
+          elif opt == "pareto":
+               new_value = new_energy/new_utilization
+
+          x = np.random.rand() # x belongs to [0, 1]
+          
+          if opt == "energy":
+               p = np.exp(((old_value / new_value) - 1) / temperature)
+          elif opt == "utilization":
+               p = np.exp((new_value - old_value) / temperature)
+          elif opt == "pareto":
+               p = np.exp(((old_value / new_value) - 1) / temperature)
+
           temperature = temperature * rho
 
           if(x < p):        
-               curr_tmo = temp_tmo.copy()
-               curr_utilization = temp_utilization
+               old_tmo = new_tmo.copy()
+               old_value = new_value
                explotation_counter += 1
                explotation_swap_array[i, j] += 1
 
-               accepted_utilization_list.append(curr_utilization)
+               accepted_value_list.append(old_value)
                if p <= 1:
                     accepted_p_list.append(p)
                
-               if(curr_utilization > best_utilization):
-                    best_tmo = curr_tmo
-                    best_utilization = curr_utilization
+               # We want to maximize utilization, minimize energy and pareto_score
+               if ((opt == "energy" or opt == "pareto") and old_value < best_value) or (opt == "utilization" and old_value > best_value):
+                    best_tmo = old_tmo
+                    best_value = old_value
           else:
                exploration_swap_array[i, j] += 1         
           
@@ -164,14 +186,14 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      exec_time = end_time - start_time
 
      #print("Best utilization :", best_utilization)
-     #print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
 
      if plot:
           plt.figure(1)
           plt.title('Utilization of accepted state evolution during the run')
           plt.xlabel("Iteration")
           plt.ylabel("Utilization")
-          plt.plot([*range(len(accepted_utilization_list))], accepted_utilization_list)
+          plt.plot([*range(len(accepted_value_list))], accepted_value_list)
           plt.figure(2)
           plt.title('Alpha evolution during the run')
           plt.xlabel("Temporal Mapping Size")
@@ -189,4 +211,4 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
           plt.show()
 
-     return best_utilization, best_tmo, exec_time
+     return best_value, best_tmo, exec_time

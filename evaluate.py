@@ -527,13 +527,16 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
 
         # Store result in visualisation_data
-        with open("visualisation_data.yaml") as f:
+        
+        with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
             data_doc = yaml.safe_load(f)
 
-        data_doc["loma_utilization_list"].append(best_utilization)
+        data_doc["loma_ut_list"].append(best_utilization)
+        data_doc["loma_en_list"].append(best_energy.item())
+        data_doc["loma_pareto_list"].append(best_energy.item()/best_utilization)
         data_doc["loma_exec_time_list"].append(end_time - start_time)
 
-        with open("visualisation_data.yaml", "w") as f:
+        with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
             yaml.dump(data_doc, f)
 
         # Convert output, which is just best allocated order at this point, to a CostModelOutput object

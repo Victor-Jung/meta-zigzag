@@ -10,19 +10,22 @@ from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
 
 
 def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
-                    spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
+                    spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, load=True):
     
-    max_iter = 2000 + 1
+    max_iter = 2200 + 2
     min_iter = 100
-    iter_interval = 100
-    number_of_sample = 1000
+    iter_interval = 200
+    number_of_sample = 100
     plot_path = "temporal_mapping_optimizer/plots"
     plot_data_path = "temporal_mapping_optimizer/plots_data"
     nn_name = "AlexNet"
+
+    data_filename = "go_prob_AlexNet_S100_I200_R100-2202.yaml"
     
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling)
     tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, max_lpf)
-    prob_list = []
+    mean_prob_list = []
+    probs_list = []
 
     # YAML Dict
     data = dict(
@@ -32,32 +35,52 @@ def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, 
 
     # Get the ""Global Optimum""
     global_optimum, tmo, exec_time = mcmc(tmo, 3000, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
-                                        input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
-    #global_optimum = 0.57843696520251 # For AlexNet L3 with default SU and max LPF
-    #print("Global Optimum :", global_optimum)
+                                        input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
 
-    for i in range(min_iter, max_iter, iter_interval):
-        go_counter = 0
-        for s in range(number_of_sample):
-            utilization, tmo, exec_time = mcmc(tmo, i, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
-                                            input_settings, mem_scheme, ii_su, spatial_unrolling, plot=False)
-            if utilization == global_optimum:
-                go_counter += 1
-        prob_list.append(go_counter/number_of_sample)
-        print("For", i, "iter of MCMC, proba to reach GO is", go_counter/number_of_sample)
+    if load:
+        with open(plot_data_path + "/" + data_filename) as f:
+            data = yaml.safe_load(f)
+        probs_list = data["probs_list"]
+        mean_prob_list = data["mean_prob_list"]
 
-    data["proba_list"] = prob_list
-    data["number_of_iter"] = [*range(min_iter, max_iter, iter_interval)]
-    plt.plot([*range(min_iter, max_iter, iter_interval)], prob_list, 'D--', label='mcmc')
+    else:
+        for i in range(min_iter, max_iter, iter_interval):
+            go_counter = 0
+            prob_list = []
+            for s in range(number_of_sample):
+                utilization, tmo, exec_time = mcmc(tmo, i, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
+                                                input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
+                if utilization == global_optimum:
+                    go_counter += 1
+                prob_list.append(utilization)
+
+            mean_prob_list.append(go_counter/number_of_sample)
+            probs_list.append(prob_list)
+            
+
+            print("For", i, "iter of MCMC, mean proba to reach GO is", go_counter/number_of_sample)
+
+        data["probs_list"] = probs_list
+        data["mean_prob_list"] = mean_prob_list
+        data["number_of_iter"] = [*range(min_iter, max_iter, iter_interval)]
+
+    iter_range = [*range(min_iter, max_iter, iter_interval)]
+    #plt.plot([min_iter - iter_interval, max_iter + iter_interval], [global_optimum, global_optimum], '--', label='go')
+
+    flierprops = dict(marker='x', markerfacecolor='green', markeredgecolor='green')
+    plt.boxplot(probs_list, positions = iter_range, widths = np.full(len(iter_range), iter_interval*0.75), flierprops=flierprops)
+
     plt.title("Reliability of MCMC depending on the number of iteration")
     plt.xlabel("Number of iteration")
-    plt.ylabel("Probability of reaching GO")
-    plt.legend(loc='upper left')
+    plt.ylabel("Utilization")
+    plt.legend(loc='lower right')
     
     # Saving Data
     plt.savefig(plot_path + "/go_prob_" + nn_name + "_S" + str(number_of_sample) + "_I" + str(iter_interval) + "_R" + str(min_iter) + "-" + str(max_iter) + ".png")
-    with open(plot_data_path + "/go_prob_" + nn_name + "_S" + str(number_of_sample) + "_I" + str(iter_interval) + "_R" + str(min_iter) + "-" + str(max_iter) + ".yaml", 'w') as f:
-        yaml.dump(data, f)
+    
+    if not load:
+        with open(plot_data_path + "/go_prob_" + nn_name + "_S" + str(number_of_sample) + "_I" + str(iter_interval) + "_R" + str(min_iter) + "-" + str(max_iter) + ".yaml", 'w') as f:
+            yaml.dump(data, f)
 
 
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
@@ -71,64 +94,61 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
     # Evaluate the min lpf size and the max lpf for the current layer
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
-    max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling)
+    max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
 
-    min_lpf = max_lpf - 1
-    #max_lpf = 8
-
-    number_of_run = 1
+    #max_lpf = 10
+    #min_lpf = 7
+    number_of_runs = 5
     curr_lpf = min_lpf
+    opt = "pareto"
 
     exec_time_list = []
-    best_utilization_list = []
+    best_value_list = []
 
+    if opt == "energy" or opt == "pareto":
+        best_value = 10**15
+    elif opt == "utilization":
+        best_value = 0
 
-    print("Generating", number_of_run, "run of MCMC with", max_lpf - min_lpf, 
-    "differents lpf size, from", min_lpf, "to", max_lpf, "lpf. For a total of", number_of_run*(max_lpf - min_lpf), "runs.")
+    print("Generating MCMC run between", max_lpf - min_lpf, 
+    "differents lpf size, from", min_lpf, "to", max_lpf, "lpf")
     
     for i in range(max_lpf - min_lpf):
 
         # Generate TMO with given LPF
-        tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, curr_lpf)
+        starting_tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, curr_lpf)
 
-        print("LPF size ", curr_lpf, ":", tmo)
+        print("LPF size ", curr_lpf, ":", starting_tmo)
         curr_lpf += 1
+        
+        for run in range(number_of_runs):
 
-        best_utilization_sum = 0
-        best_utilization = 0
-        exec_time_sum = 0
-        best_tmo = []
-        best_tmo = []
-        worst_utilization = 1
+            value, tmo, exec_time = mcmc(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+                                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
 
-        for i in range(number_of_run):
-            utilization, tmo, exec_time = mcmc(tmo, 2000, layer, im2col_layer, layer_rounded, 
-                                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, plot=True)
-
-            best_utilization_sum += utilization
-            exec_time_sum += exec_time
-
-            if utilization > best_utilization:
-                best_utilization = utilization
+            if ((opt == "energy" or opt == "pareto") and value < best_value) or (opt == "utilization" and value > best_value):
                 best_tmo = tmo
-            if utilization < worst_utilization:
-                worst_utilization = utilization
+                best_value = value
+                best_exec_time = exec_time
+
+        best_value_list.append(best_value.item())
+        exec_time_list.append(best_exec_time)
         
-        best_utilization_list.append(best_utilization)
-        print("append to t list", exec_time)
-        exec_time_list.append(exec_time)
-        
-        #print("Average Utilization :", best_utilization_sum / number_of_run)
-        #print("Worst Utilization :", worst_utilization)
-        print("Best Utilization :", best_utilization)
+        if opt == "energy":
+            print("Best Energy :", best_value)
+        elif opt == "utilization":
+            print("Best Utilization :", best_value)
+        elif opt == "pareto":
+            print("Best Pareto Score :", best_value)
+
         print("Best tmo :", best_tmo)
-        print("Average Exec time on", number_of_run, "runs :", exec_time_sum/number_of_run)  
+        print("Exec time", exec_time)  
 
     # Store result in visualisation_data
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
         data_doc = yaml.safe_load(f)
 
-    data_doc["mcmc_utilization_list"] = best_utilization_list
+    data_doc["mcmc_value_list"] = best_value_list
     data_doc["mcmc_exec_time_list"] = exec_time_list
     data_doc["lpf_range"] = [*range(min_lpf, max_lpf)]
     
