@@ -147,7 +147,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           new_energy, new_utilization = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
           if opt == "energy":
-               new_value = new_energy
+               new_value = new_energy.item()
           elif opt == "utilization":
                new_value = new_utilization
           elif opt == "pareto":

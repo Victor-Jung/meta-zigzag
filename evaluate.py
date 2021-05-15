@@ -475,10 +475,14 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         #################################     POST PROCESSING     ##################################
         best_output_energy = None
         best_output_utilization = None
+        best_output_pareto = None
         best_energy = float('inf')
         best_energy_utilization = 0
         best_utilization = 0
         best_utilization_energy = float('inf')
+        best_pareto_score = float('inf')
+        best_pareto_energy = float('inf')
+        best_pareto_utilization = 0
 
         # Create pickle file to append to if pickle_enable
         if pickle_enable:
@@ -493,7 +497,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         # Loop through the best energy/ut found by the parallel processes to find the overall best one
         for (min_en, min_en_ut, min_en_output, max_ut_en, max_ut, max_ut_output, en_collect, ut_collect,
-             lat_collect) in results:
+             lat_collect, min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_output) in results:
             if (min_en < best_energy or (min_en == best_energy and min_en_ut > best_energy_utilization)):
                 best_energy = min_en
                 best_energy_utilization = min_en_ut
@@ -502,7 +506,11 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                 best_utilization_energy = max_ut_en
                 best_utilization = max_ut
                 best_output_utilization = max_ut_output
-
+            if (min_pareto_score < best_pareto_score) or (min_pareto_score == best_pareto_score and (min_pareto_en < best_pareto_energy or min_pareto_ut > best_pareto_utilization)):
+                best_pareto_score = min_pareto_score
+                best_pareto_energy = min_pareto_en
+                best_pareto_utilization = min_pareto_ut
+                best_pareto_output = min_pareto_output
 
             # Save the collected (energy,ut) from every temporal mapping if required
             if pickle_enable:
@@ -533,7 +541,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         data_doc["loma_ut_list"].append(best_utilization)
         data_doc["loma_en_list"].append(best_energy.item())
-        data_doc["loma_pareto_list"].append(best_energy.item()/best_utilization)
+        data_doc["loma_pareto_score_list"].append(best_pareto_score.item())
+        data_doc["loma_pareto_en_list"].append(best_pareto_energy.item())
+        data_doc["loma_pareto_ut_list"].append(best_pareto_utilization)
         data_doc["loma_exec_time_list"].append(end_time - start_time)
 
         with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:

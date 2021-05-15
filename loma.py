@@ -555,7 +555,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
         # Extract return values
         min_en = max_ut_en = cost_model_output.total_cost
         min_en_ut = max_ut = cost_model_output.utilization.mac_utilize_no_load
-        min_en_order = max_ut_order = empty_allocated_order
+        min_en_order = max_ut_order = min_pareto_order = empty_allocated_order
 
         # Init energy,latency,utilization collect
         energy_collect = None
@@ -595,6 +595,9 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
     min_en_ut = 0
     max_ut_en = float('inf')
     max_ut = 0
+    min_pareto_score = float('inf')
+    min_pareto_en = float('inf')
+    min_pareto_ut = 0
 
     # Init energy,latency,utilization collect
     energy_collect = None
@@ -706,6 +709,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                 ############################# COMPARISON WITH BEST SO FAR #############################
                                 en = total_cost_layer
                                 ut = utilization.mac_utilize_no_load
+                                pareto_score = en / ut
 
                                 if (en < min_en) or (en == min_en and ut > min_en_ut):
                                     min_en = en
@@ -715,6 +719,11 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                     max_ut = ut
                                     max_ut_en = en
                                     max_ut_order = allocated_order
+                                if (pareto_score < min_pareto_score) or (pareto_score == min_pareto_score and (en < min_pareto_en or ut > min_pareto_ut)):
+                                    min_pareto_score = pareto_score
+                                    min_pareto_en = en
+                                    min_pareto_ut = ut
+                                    min_pareto_order = allocated_order
                                 if save_all_tm:
                                     energy_collect.append(int(en))
                                     utilization_collect.append(ut)
@@ -726,4 +735,5 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
 
     return (min_en, min_en_ut, min_en_order,
         max_ut_en, max_ut, max_ut_order,
-        energy_collect, utilization_collect, latency_collect)
+        energy_collect, utilization_collect, latency_collect, 
+        min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_order)

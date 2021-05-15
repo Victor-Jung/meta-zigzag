@@ -6,6 +6,7 @@ import yaml
 #from reinforcement_learning_algo.core.state import TemporalMappingState
 from temporal_mapping_optimizer.MCMC import *
 from temporal_mapping_optimizer.random_search import *
+from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
 
 
@@ -96,17 +97,39 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
 
-    max_lpf = 8
-    min_lpf = 7
-    number_of_runs = 100
-    curr_lpf = min_lpf
     opt = "pareto"
+    number_of_runs = 3
+
+    if opt == "energy":
+        optimize("energy", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+    elif opt == "utilization":
+        optimize("utilization", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+    elif opt == "pareto":
+        optimize("energy", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+        optimize("utilization", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+        optimize("pareto", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+                layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+    
+
+def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+            layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
+
+    # Initialize mac costs
+    mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
+
+    curr_lpf = min_lpf
 
     exec_time_list = []
     best_value_list = []
+    pareto_en_list = []
+    pareto_ut_list = []
 
     if opt == "energy" or opt == "pareto":
-        best_value = 10**15
+        best_value = float('inf')
     elif opt == "utilization":
         best_value = 0
 
@@ -130,9 +153,14 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 best_tmo = tmo
                 best_value = value
                 best_exec_time = exec_time
-
+    
         best_value_list.append(best_value)
         exec_time_list.append(best_exec_time)
+
+        if opt == "pareto":
+            pareto_en, pareto_ut = get_temporal_loop_estimation(best_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+            pareto_en_list.append(pareto_en.item())
+            pareto_ut_list.append(pareto_ut)
         
         if opt == "energy":
             print("Best Energy :", best_value)
@@ -148,12 +176,18 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
         data_doc = yaml.safe_load(f)
 
-    data_doc["mcmc_value_list"] = best_value_list
+    if opt == "energy":
+        data_doc["mcmc_en_list"] = best_value_list
+    elif opt == "utilization":
+        data_doc["mcmc_ut_list"] = best_value_list
+    elif opt == "pareto":
+        data_doc["mcmc_pareto_list"] = best_value_list
+        data_doc["mcmc_pareto_en_list"] = pareto_en_list
+        data_doc["mcmc_pareto_ut_list"] = pareto_ut_list
+
     data_doc["mcmc_exec_time_list"] = exec_time_list
     data_doc["lpf_range"] = [*range(min_lpf, max_lpf)]
     
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
         yaml.dump(data_doc, f)
-
-
     

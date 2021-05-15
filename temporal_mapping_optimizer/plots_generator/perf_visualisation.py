@@ -5,7 +5,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 
 opt = "pareto"
-loma_lpf_limit = 8
+loma_lpf_limit = 10
 load_only = False
 nn_name = "ResNet18"
 layer_idxs = [2]
@@ -33,6 +33,14 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
             yaml.dump(settings_doc, f)
 
         process = subprocess.Popen(run_zigzag_command.split(), stdout=subprocess.PIPE, text=True)
+        '''while True:
+            output = process.stdout.readline()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+
+                print(output.strip())
+        rc = process.poll()'''
         output, error = process.communicate()
         print(output)
 
@@ -41,7 +49,17 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
     with open(data_file_path) as f:
         data_doc = yaml.safe_load(f)
 
-    mcmc_value_list = data_doc["mcmc_value_list"]
+    if opt == "energy":
+        mcmc_en_list = data_doc["mcmc_en_list"]
+    elif opt == "utilization":
+        mcmc_ut_list = data_doc["mcmc_ut_list"]
+    elif opt == "pareto":
+        mcmc_en_list = data_doc["mcmc_en_list"]
+        mcmc_ut_list = data_doc["mcmc_ut_list"]
+        mcmc_pareto_en_list = data_doc["mcmc_pareto_en_list"]
+        mcmc_pareto_ut_list = data_doc["mcmc_pareto_ut_list"]
+        mcmc_pareto_list = data_doc["mcmc_pareto_list"]
+    
     mcmc_exec_time_list = data_doc["mcmc_exec_time_list"]
     lpf_range = data_doc["lpf_range"]
 
@@ -56,7 +74,9 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
         # Reset loma utilization array
         data_doc["loma_ut_list"] = []
         data_doc["loma_en_list"] = []
-        data_doc["loma_pareto_list"] = []
+        data_doc["loma_pareto_score_list"] = []
+        data_doc["loma_pareto_en_list"] = []
+        data_doc["loma_pareto_ut_list"] = []
         data_doc["loma_exec_time_list"] = []
 
         with open(data_file_path, "w") as f:
@@ -85,14 +105,16 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
         data_doc = yaml.safe_load(f)
     loma_ut_list = data_doc["loma_ut_list"]
     loma_en_list = data_doc["loma_en_list"]
-    loma_pareto_list = data_doc["loma_pareto_list"]
+    loma_pareto_score_list = data_doc["loma_pareto_score_list"]
+    loma_pareto_en_list = data_doc["loma_pareto_en_list"]
+    loma_pareto_ut_list = data_doc["loma_pareto_ut_list"]
     loma_exec_time_list = data_doc["loma_exec_time_list"]
 
     # Save yaml file
     with open(plot_data_path + "/" + nn_name + "_L" + str(layer_idx) + "_" + opt + ".yaml", "w") as f:
         yaml.dump(data_doc, f)
 
-    ######### Result Plotting #########
+    ######### Plot Preprocessing #########
 
     # Shift range to avoid bar chart overlapping
     loma_lpf_range_shifted = deepcopy(loma_lpf_range)
@@ -102,6 +124,18 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
     for i in range(len(lpf_range_shifted)):
         lpf_range_shifted[i] -= 0.25/2
 
+    pareto_en_ratio_list = []
+    pareto_ut_ratio_list = []
+
+    if opt == "pareto": 
+        for i in range(len(lpf_range)):
+            pareto_en_ratio_list.append(mcmc_en_list[i] / mcmc_pareto_en_list[i])
+            pareto_ut_ratio_list.append(mcmc_pareto_ut_list[i] / mcmc_ut_list[i])
+
+    print("pareto_en_ratio", pareto_en_ratio_list)
+    print("pareto_ut_ratio", pareto_ut_ratio_list)
+
+    ######### Result Plotting #########
 
     fig, ax1 = plt.subplots()
     plt.title("Loma And MCMC performance for " + nn_name + " L" + str(layer_idx))
@@ -112,24 +146,28 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
     ax1.tick_params(axis='y')
     
     ax2 = ax1.twinx()
-    ax2.plot(lpf_range, mcmc_value_list, 'D-', label='mcmc', color='tab:orange')
     ax2.set_xlabel("Temporal Mapping Size")
     if opt == "energy":
         ax2.set_ylabel("Best Energy Found")
+        ax2.plot(lpf_range, mcmc_en_list, 'D-', label='mcmc', color='tab:orange')
         ax2.plot(loma_lpf_range, loma_en_list, '.-', label='loma', color='tab:blue')
     elif opt == "utilization":
         ax2.set_ylabel("Best Utilization Found")
+        ax2.plot(lpf_range, mcmc_ut_list, 'D-', label='mcmc', color='tab:orange')
         ax2.plot(loma_lpf_range, loma_ut_list, '.-', label='loma', color='tab:blue')
     elif opt == "pareto":
         ax2.set_ylabel("Best Pareto Score (Energy / Utilization)")
-        ax2.plot(loma_lpf_range, loma_pareto_list, '.-', label='loma', color='tab:blue')
+        ax2.plot(lpf_range, mcmc_pareto_list, 'D-', label='mcmc', color='tab:orange')
+        ax2.plot(loma_lpf_range, loma_pareto_score_list, '.-', label='loma', color='tab:blue')
+        for i in range(len(lpf_range)):
+            ax2.annotate('{:.2f},\n{:.2f}'.format(pareto_en_ratio_list[i], pareto_ut_ratio_list[i]), (lpf_range[i] + 0.15, mcmc_pareto_list[i] + 0.25))
     ax2.tick_params(axis='y')
 
     fig.tight_layout()
-    #if opt == "energy" or opt == "pareto":
-    #   plt.legend(loc='upper right')
-    #elif opt == "utilization":
-    #   plt.legend(loc='upper left')
+    if opt == "energy" or opt == "pareto":
+       plt.legend(loc='upper right')
+    elif opt == "utilization" or opt == "pareto":
+       plt.legend(loc='upper left')
 
     plt.savefig(plot_path + "/" + nn_name + "_L" + str(layer_idx) + "_" + opt + ".png")
 
