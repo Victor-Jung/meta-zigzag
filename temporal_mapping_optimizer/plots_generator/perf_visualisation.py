@@ -1,14 +1,15 @@
 import os
 import yaml
+import shlex
 import subprocess
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
-opt = "pareto"
+opt = "energy"
 loma_lpf_limit = 10
 load_only = False
 nn_name = "ResNet18"
-layer_idxs = [2]
+layer_idxs = [4]
 plot_data_path = "temporal_mapping_optimizer/plots_data"
 plot_path = "temporal_mapping_optimizer/plots"
 
@@ -32,17 +33,16 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
         with open(settings_file_path, "w") as f:
             yaml.dump(settings_doc, f)
 
-        process = subprocess.Popen(run_zigzag_command.split(), stdout=subprocess.PIPE, text=True)
-        '''while True:
+        process = subprocess.Popen(shlex.split(run_zigzag_command), stdout=subprocess.PIPE, text=True)
+        while True:
             output = process.stdout.readline()
-            if output == '' and process.poll() is not None:
+            if process.poll() is not None:
                 break
             if output:
-
                 print(output.strip())
-        rc = process.poll()'''
-        output, error = process.communicate()
-        print(output)
+        rc = process.poll()
+        #output, error = process.communicate()
+        #print(output)
 
 
     ######### Load MCMC utilization list and lpf range then create loma lpf range #########
@@ -131,9 +131,8 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
         for i in range(len(lpf_range)):
             pareto_en_ratio_list.append(mcmc_en_list[i] / mcmc_pareto_en_list[i])
             pareto_ut_ratio_list.append(mcmc_pareto_ut_list[i] / mcmc_ut_list[i])
-
-    print("pareto_en_ratio", pareto_en_ratio_list)
-    print("pareto_ut_ratio", pareto_ut_ratio_list)
+        print("pareto_en_ratio", pareto_en_ratio_list)
+        print("pareto_ut_ratio", pareto_ut_ratio_list)
 
     ######### Result Plotting #########
 

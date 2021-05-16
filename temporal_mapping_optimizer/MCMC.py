@@ -126,8 +126,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      start_energy, start_utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
-          best_value = start_energy
-          old_value = start_energy
+          best_value = start_energy.item()
+          old_value = start_energy.item()
      elif opt == "utilization":
           best_value = start_utilization
           old_value = start_utilization

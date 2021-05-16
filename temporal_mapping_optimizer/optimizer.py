@@ -97,7 +97,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
 
-    opt = "pareto"
+    opt = "energy"
     number_of_runs = 3
 
     if opt == "energy":
