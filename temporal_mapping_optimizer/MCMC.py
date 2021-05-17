@@ -1,7 +1,9 @@
 from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids
+from temporal_mapping_optimizer.queue import Queue
 
 from loma import limit_lpf, get_prime_factors
+import classes as cls
 
 from sympy import factorint, isprime
 import matplotlib.pyplot as plt
@@ -101,28 +103,63 @@ def get_max_lpf_size(layer_architecture, spatial_unrolling):
     
 
 def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
-         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False):
+         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, layer_post, opt, plot=False):
+
+     """
+     print("Testing the queue !")
+
+     q = Queue(max_size=16)
+     c_loop = ('C', 2)
+     k_loop = ('K', 2)
+
+     q.enqueue(c_loop)
+     q.print_items()
+     q.enqueue(k_loop)
+     q.enqueue(c_loop)
+     q.print_items()
+     out = q.enqueue(c_loop)
+     q.print_items()
+     print("out :", out)
+     out = q.enqueue(('OY',13))
+     q.print_items()
+     print("out :", out)
+     """
+
+     # Where can I update the SU ?
+     # print(spatial_unrolling) # we dont use spatial_unrolling obj in cost eval ? 
+     # So just remove loops from tmo should impact performances, or mapping.yaml
+     # give the SU via another obj to cost eval. 
+     # print(input_settings.spatial_unrolling_single) # maybe given with this arg
+     # Have to define mem level to access the su
+     # First try even su
+     # Look like changing input_settings.spatial_unrolling_single doesn't change performances
+     # Probably need to change spatial loop comb and mem scheme, I'll ask Arne on Monday
+
+     # Seems to work for energy but not for utilization
+     # Updating spatial_loop_comb obj and input_settings don't seems to have impact
+     
+     print(mem_scheme.spatial_unrolling)
 
      start_time = time.time()
 
-     # Hyperparameters
-     #iter = 2000
+     ### Hyperparameters ###
      temperature = 0.05*10
-     rho = 0.999
+     rho = 0.999 # Temperature Decay
 
+     # Plot lists
      accepted_p_list = []
      accepted_value_list = []
      explotation_counter = 0
-     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
-     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
+     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering) + 1), dtype=float)
+     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering) + 1), dtype=float)
 
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
      # Extract the list of tuple from the tmo
      start_tmo = temporal_mapping_ordering
-     # Initalization of a random starting point
-     random.shuffle(start_tmo)
 
+     # Initalization and Evaluation of a random starting point
+     random.shuffle(start_tmo)
      start_energy, start_utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
@@ -134,42 +171,93 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      elif opt == "pareto":
           best_value = start_energy/start_utilization
           old_value = start_energy/start_utilization
-
      best_tmo = start_tmo
      old_tmo = start_tmo
 
+     su_max_size = 8
+     old_su = Queue(su_max_size)
+
+     new_input_settings = deepcopy(input_settings)
+     new_spatial_loop_comb = deepcopy(spatial_loop_comb)
+     new_mem_scheme = deepcopy(mem_scheme)
+     
+     best_su = old_su
+     best_input_settings = input_settings
+     best_spatial_loop_comb = spatial_loop_comb
+     best_mem_scheme = mem_scheme
+
      for k in range(iter):
+          
+          # Note : the tmo size is dynamic here depending on how many loops are in the su queue
+          su_idx = len(old_tmo)
+
+          # Uniforme random sampling in the neighborhoods
           i = np.random.randint(0, len(old_tmo)) 
-          j = np.random.randint(0, len(old_tmo))
+          j = np.random.randint(0, len(old_tmo) + 1)
 
-          new_tmo = tmo_swap(old_tmo, i, j)
+          if j == su_idx:
+               # Put the loop at pos i into the su queue and put queue output into the tmo
+               if old_tmo[i][1] > su_max_size:
+                    continue
+               new_tmo = deepcopy(old_tmo)
+               new_su = deepcopy(old_su)
+               q_output = new_su.enqueue(new_tmo[i])
+               new_tmo.pop(i)
+               for loop in q_output:
+                    new_tmo.insert(i, loop)
 
-          new_energy, new_utilization = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+               # Update SU object 
+               new_input_settings = deepcopy(input_settings) # save it in case we don't use this new su
+               new_input_settings.spatial_unrolling_single['W'][1] = new_su.items
+               new_input_settings.spatial_unrolling_single['I'][1] = new_su.items
+               new_input_settings.spatial_unrolling_single['O'][1] = new_su.items
 
+               new_spatial_loop_comb = deepcopy(spatial_loop_comb)
+               [spatial_loop, spatial_loop_fractional] = new_spatial_loop_comb
+               spatial_loop = cls.SpatialLoop.extract_loop_info(new_input_settings.spatial_unrolling_single, layer_post)
+               new_spatial_loop_comb = [spatial_loop, spatial_loop_fractional]
+
+               new_mem_scheme = deepcopy(mem_scheme)
+               new_mem_scheme.spatial_unrolling = new_input_settings.spatial_unrolling_single
+
+          else:
+               # Apply the selected swap
+               new_su = old_su
+               new_input_settings = input_settings
+               new_tmo = tmo_swap(old_tmo, i, j)
+
+          # Evaluate the quality of the new tmo + su
+          new_energy, new_utilization = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, new_mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+
+          # Compute the acceptance probability p of the new tmo
           if opt == "energy":
                new_value = new_energy.item()
+               p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "utilization":
                new_value = new_utilization
-          elif opt == "pareto":
-               new_value = new_energy.item()/new_utilization
-
-          x = np.random.rand() # x belongs to [0, 1]
-          
-          if opt == "energy":
-               p = np.exp(((old_value / new_value) - 1) / temperature)
-          elif opt == "utilization":
                p = np.exp((new_value - old_value) / temperature)
           elif opt == "pareto":
+               new_value = new_energy.item()/new_utilization
                p = np.exp(((old_value / new_value) - 1) / temperature)
 
+          # Sample x to make the choice and update temperature
+          x = np.random.rand() # x belongs to [0, 1]
           temperature = temperature * rho
 
-          if(x < p):        
+          if(x < p):    
+               # Move on the next point    
                old_tmo = new_tmo.copy()
+               old_su = deepcopy(new_su)
+               input_settings = new_input_settings
+               spatial_loop_comb = new_spatial_loop_comb
+               mem_scheme = new_mem_scheme
                old_value = new_value
+
+               #print("New SU :", old_su.items)
+
+               # Plot data saving
                explotation_counter += 1
                explotation_swap_array[i, j] += 1
-
                accepted_value_list.append(old_value)
                if p <= 1:
                     accepted_p_list.append(p)
@@ -177,18 +265,24 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                # We want to maximize utilization, minimize energy and pareto_score
                if ((opt == "energy" or opt == "pareto") and old_value < best_value) or (opt == "utilization" and old_value > best_value):
                     best_tmo = old_tmo
+                    best_su = old_su
+                    best_input_settings = input_settings
+                    best_spatial_loop_comb = spatial_loop_comb
+                    best_mem_scheme = mem_scheme
                     best_value = old_value
           else:
-               exploration_swap_array[i, j] += 1         
+               exploration_swap_array[i, j] += 1
           
-
+     # Save the exec time for plots
      end_time = time.time()
      exec_time = end_time - start_time
 
-     #print("Best utilization :", best_utilization)
-     print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     #print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
      print("Best value :", best_value)
+     print("Best_su :", best_su.items)
+     print("Best input settings su :", best_input_settings.spatial_unrolling_single)
 
+     # Visualization option
      if plot:
           plt.figure(1)
           plt.title('Utilization of accepted state evolution during the run')
@@ -212,4 +306,4 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
           plt.show()
 
-     return best_value, best_tmo, exec_time
+     return best_value, best_tmo, best_su, exec_time

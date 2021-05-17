@@ -1,21 +1,47 @@
+Ut Problem :
 
-For 100 iter of MCMC, proba to reach GO is 0.058
-For 200 iter of MCMC, proba to reach GO is 0.147
-For 300 iter of MCMC, proba to reach GO is 0.256
-For 400 iter of MCMC, proba to reach GO is 0.371
-For 500 iter of MCMC, proba to reach GO is 0.471
-For 600 iter of MCMC, proba to reach GO is 0.578
-For 700 iter of MCMC, proba to reach GO is 0.669
-For 800 iter of MCMC, proba to reach GO is 0.709
-For 900 iter of MCMC, proba to reach GO is 0.76
-For 1000 iter of MCMC, proba to reach GO is 0.808
-For 1100 iter of MCMC, proba to reach GO is 0.834
-For 1200 iter of MCMC, proba to reach GO is 0.848
-For 1300 iter of MCMC, proba to reach GO is 0.87
-For 1400 iter of MCMC, proba to reach GO is 0.879
-For 1500 iter of MCMC, proba to reach GO is 0.885
-For 1600 iter of MCMC, proba to reach GO is 0.872
-For 1700 iter of MCMC, proba to reach GO is 0.894
-For 1800 iter of MCMC, proba to reach GO is 0.88
-For 1900 iter of MCMC, proba to reach GO is 0.876
-For 2000 iter of MCMC, proba to reach GO is 0.889
+	Generating MCMC run between 1 differents lpf size, from 16 to 17 lpf
+	LPF size  16 : [(6, 2), (6, 2), (6, 2), (5, 2), (5, 2), (5, 2), (4, 2), (4, 2), (4, 2), (4, 7), (3, 2), (3, 2), (3, 2), (3, 7), (2, 3), (1, 3)]
+	Best value : 0.25
+	Best_su : []
+	Best input settings su : {'W': [[], [(5, 8), (6, 8)], []], 'I': [[], [(5, 8), (6, 8)], [], []], 'O': [[], [(5, 8), (6, 8)], [], []]}
+	Best value : 0.25
+	Best_su : [(6, 2), (6, 2), (4, 2)]
+	Best input settings su : {'W': [[], [(6, 2), (6, 2), (4, 2)], []], 'I': [[], [(6, 2), (6, 2), (4, 2)], [], []], 'O': [[], [(6, 2), (6, 2), (4, 2)], [], []]}
+	Best value : 0.25
+	Best_su : [(6, 2), (5, 2)]
+	Best input settings su : {'W': [[], [(6, 2), (5, 2)], []], 'I': [[], [(6, 2), (5, 2)], [], []], 'O': [[], [(6, 2), (5, 2)], [], []]}
+	Best Utilization : 0.25
+	Best tmo : [(6, 2), (3, 2), (3, 2), (1, 3), (6, 2), (5, 2), (3, 2), (3, 7), (4, 2), (4, 2), (5, 2), (6, 2), (5, 2), (2, 3), (4, 2), (4, 7)]
+	Best su : []
+	Exec time 3.101069211959839
+	14:56:22 ResNet18 L 2 , M 1 / 1  No TM found
+	ZigZag finished running. Total elapsed time: 9 seconds.
+	Results are saved to ./results_test.
+
+
+Energy opt SU ?
+
+	AlexNet L3 : even Mapping Col=[C,2] Row=[K,2] :  
+	Best Energy : 6632716953.6
+	Best tmo : [(6, 2), (6, 2), (6, 2), (5, 2), (1, 3), (5, 2), (3, 13), (4, 13), (6, 3), (5, 2), (6, 2), (5, 2), (6, 2), (5, 2), (5, 2), (6, 2)] size 16
+	Best su : [(2, 3), (5, 2)]
+
+	AlexNet L3 : default Mapping : Col=[OY,13] Row=[FY,3],[C,2],[K,2]
+	Best Energy : 10628735232.0
+	Best tmo : [(6, 2), (6, 3), (6, 2), (5, 2), (5, 2), (1, 3), (3, 13), (6, 2), (5, 2), (5, 2), (5, 2), (6, 2), (6, 2), (5, 2), (5, 2), (6, 2)] size 16
+
+
+	ResNet18 L2 : even Mapping : Col=[C,2] Row=[K,2]
+	Best Energy : 4764292505.6
+	Best tmo : [(3, 7), (1, 3), (3, 2), (5, 2), (5, 2), (5, 2), (6, 2), (6, 2), (4, 7), (5, 2), (3, 2), (3, 2), (5, 2), (6, 2), (4, 2), (4, 2), (4, 2), (6, 2)]
+	Best su : [(6, 2), (2, 3)]
+	
+	ResNet18 L2 : default Mapping : Col=[C,16] Row=[K,16]
+	Best Energy : 8158162816.0
+	Best tmo : [(3, 2), (3, 2), (4, 2), (1, 3), (6, 2), (2, 3), (5, 2), (5, 2), (4, 7), (4, 2), (3, 7), (6, 2), (4, 2), (3, 2)]
+
+
+Result : 
+	AlexNet L3 : For the same lpf size and mapping size we decrease by 1-(6632716953.6/10628735232.0)=0.375 37.5% the energy cost.
+	ResNet18 L2 : We decrease by 1-(4764292505.6/8158162816.0)=0.416 41.6% the energy cost.

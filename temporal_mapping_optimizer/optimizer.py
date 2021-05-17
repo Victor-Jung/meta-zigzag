@@ -97,6 +97,9 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
 
+    min_lpf = max_lpf - 1
+    #max_lpf = 11
+
     opt = "energy"
     number_of_runs = 3
 
@@ -127,6 +130,8 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
     best_value_list = []
     pareto_en_list = []
     pareto_ut_list = []
+    best_tmo = []
+    best_su = []
 
     if opt == "energy" or opt == "pareto":
         best_value = float('inf')
@@ -146,11 +151,12 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
         
         for run in range(number_of_runs):
 
-            value, tmo, exec_time = mcmc(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
-                                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
+            value, tmo, su, exec_time = mcmc(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+                                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, layer_post, opt, plot=False)
             
             if ((opt == "energy" or opt == "pareto") and value < best_value) or (opt == "utilization" and value > best_value):
                 best_tmo = tmo
+                best_su = su
                 best_value = value
                 best_exec_time = exec_time
     
@@ -170,6 +176,7 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
             print("Best Pareto Score :", best_value)
 
         print("Best tmo :", best_tmo)
+        print("Best su :", best_su.items)
         print("Exec time", exec_time)  
 
     # Store result in visualisation_data

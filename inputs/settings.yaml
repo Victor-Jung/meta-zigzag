@@ -6,7 +6,7 @@ im2col_enable_for_all_layers: false
 im2col_enable_for_pointwise_layers: true
 layer_filename: ./NN_layers/ResNet18
 layer_indices:
-- 4
+- 2
 layer_multiprocessing: 1
 max_nb_lpf_layer: 10
 result_filename: AlexNet
@@ -21,4 +21,4 @@ spatial_unrolling_multiprocessing: 1
 spatial_unrolling_search_method: hint_driven
 spatial_utilization_threshold: 0.9
 temporal_mapping_multiprocessing: 8
-temporal_mapping_search_method: loma
+temporal_mapping_search_method: RL
