@@ -100,7 +100,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     min_lpf = max_lpf - 1
     #max_lpf = 11
 
-    opt = "energy"
+    opt = "utilization"
     number_of_runs = 3
 
     if opt == "energy":

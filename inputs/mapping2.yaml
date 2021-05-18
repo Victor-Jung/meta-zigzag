@@ -20,21 +20,21 @@ spatial_mapping_fixed:
   weight:
     MAC: []
     0:
-      Col: [[C,2]]
-      Row: [[K,2]]
+      Col: [[C,16]]
+      Row: [[K,16]]
     1: []
   input:
     MAC: []
     0:
-      Col: [[C,2]]
-      Row: [[K,2]]
+      Col: [[C,16]]
+      Row: [[K,16]]
     1: []
     2: []
   output:
     MAC: []
     0:
-      Col: [[C,2]]
-      Row: [[K,2]]
+      Col: [[C,16]]
+      Row: [[K,16]]
     1: []
     2: []
 
