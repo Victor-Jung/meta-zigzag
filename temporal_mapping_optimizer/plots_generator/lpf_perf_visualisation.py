@@ -13,7 +13,7 @@ layer_idxs = [4]
 plot_data_path = "temporal_mapping_optimizer/plots_data"
 plot_path = "temporal_mapping_optimizer/plots"
 
-def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_path, load_only):
+def lpf_performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_path, load_only):
 
     ######### Fixed Parameters #########
     settings_file_path = "inputs/settings.yaml"
@@ -21,7 +21,7 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
     run_zigzag_command = "python3 top_module.py --arch ./inputs/architecture.yaml --map ./inputs/mapping2.yaml --set ./inputs/settings.yaml --mempool ./inputs/memory_pool.yaml"
 
 
-    ######### Prepare MCMC settings run it #########
+    ######### Prepare MCMC settings and run it #########
     if not load_only:
         with open(settings_file_path) as f:
             settings_doc = yaml.safe_load(f)
@@ -172,6 +172,6 @@ def performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_pa
 
 if len(layer_idxs) > 1:
     for layer_idx in range(layer_idxs[0], layer_idxs[1]+1):
-        performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_path, load_only)
+        lpf_performance_plot(nn_name, layer_idx, loma_lpf_limit, plot_path, plot_data_path, load_only)
 else:
-    performance_plot(nn_name, layer_idxs[0], loma_lpf_limit, plot_path, plot_data_path, load_only)
+    lpf_performance_plot(nn_name, layer_idxs[0], loma_lpf_limit, plot_path, plot_data_path, load_only)

@@ -96,9 +96,10 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     # Evaluate the min lpf size and the max lpf for the current layer
     min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
     max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
+    min_lpf = max_lpf - 1
 
-    opt = "energy"
-    number_of_runs = 3
+    opt = "utilization"
+    number_of_runs = 1
 
     if opt == "energy":
         optimize("energy", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
@@ -185,8 +186,16 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
         data_doc["mcmc_pareto_en_list"] = pareto_en_list
         data_doc["mcmc_pareto_ut_list"] = pareto_ut_list
 
+    su = spatial_loop_comb[0].spatial_loop
+    for op in ['W', 'I', 'O']:
+        for mem_lv_idx, mem_lv in enumerate(su[op]):
+            for loop_idx, loop in enumerate(su[op][mem_lv_idx]):
+                if type(loop) is tuple:
+                    su[op][mem_lv_idx][loop_idx] = list(loop)
+
     data_doc["mcmc_exec_time_list"] = exec_time_list
     data_doc["lpf_range"] = [*range(min_lpf, max_lpf)]
+    data_doc["su"] = su
     
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
         yaml.dump(data_doc, f)

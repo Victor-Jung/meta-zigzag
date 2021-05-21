@@ -107,12 +107,14 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      # Hyperparameters
      #iter = 2000
-     temperature = 0.05*10
+     temperature = 0.05
      rho = 0.999
 
      accepted_p_list = []
      accepted_value_list = []
      explotation_counter = 0
+     exploration_counter = 0
+     rejection_counter = 0
      exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
      explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
 
@@ -167,26 +169,26 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           if(x < p):        
                old_tmo = new_tmo.copy()
                old_value = new_value
-               explotation_counter += 1
+               
                explotation_swap_array[i, j] += 1
 
-               accepted_value_list.append(old_value)
-               if p <= 1:
-                    accepted_p_list.append(p)
+               if p >= 1:
+                    explotation_counter += 1
+               else:
+                    exploration_counter += 1
                
                # We want to maximize utilization, minimize energy and pareto_score
                if ((opt == "energy" or opt == "pareto") and old_value < best_value) or (opt == "utilization" and old_value > best_value):
                     best_tmo = old_tmo
-                    best_value = old_value
+                    best_value = old_value    
           else:
-               exploration_swap_array[i, j] += 1         
-          
+               rejection_counter += 1
 
      end_time = time.time()
      exec_time = end_time - start_time
 
      #print("Best utilization :", best_utilization)
-     print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
      print("Best value :", best_value)
 
      if plot:

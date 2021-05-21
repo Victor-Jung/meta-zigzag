@@ -9,7 +9,7 @@ from classes.order import Order
 import operator
 import time
 from classes.layer_rounding import mem_access_count_correct
-
+from pprint import pprint
 
 """
 # multipermute - permutations of a multiset
@@ -406,7 +406,8 @@ def og(layer_spec, spatial_unrolling, lpf_limit):
     """
     # Corresponding number for each loop_type
     lt_convert = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
-
+    pprint(layer_spec)
+    pprint(spatial_unrolling)
     layer_spec_temporal = {}
 
     # Add all non-trivial loop_types of layer_spec to layer_spec_temporal
