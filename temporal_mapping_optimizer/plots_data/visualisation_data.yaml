@@ -5,11 +5,11 @@ loma_pareto_score_list: []
 loma_pareto_ut_list: []
 loma_ut_list: []
 lpf_range:
-- 12
+- 10
 mcmc_en_list:
 - 230081328.0
 mcmc_exec_time_list:
-- 2.8843986988067627
+- 2.855098009109497
 mcmc_pareto_en_list:
 - 8570383756.0
 - 8570383756.0
@@ -41,28 +41,28 @@ mcmc_pareto_ut_list:
 - 1.0
 - 1.0
 mcmc_ut_list:
-- 0.03121878121878122
+- 0.00390625
 su:
   I:
-  - []
   - - - 5
-      - 16
+      - 1
     - - 6
-      - 10
+      - 1
   - &id001 []
   - *id001
+  - *id001
   O:
-  - []
   - - - 5
-      - 16
+      - 1
     - - 6
-      - 10
+      - 1
   - &id002 []
   - *id002
+  - *id002
   W:
-  - []
   - - - 5
-      - 16
+      - 1
     - - 6
-      - 10
-  - []
+      - 1
+  - &id003 []
+  - *id003

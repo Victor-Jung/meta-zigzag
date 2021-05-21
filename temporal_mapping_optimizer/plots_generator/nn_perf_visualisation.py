@@ -11,14 +11,14 @@ import importlib.machinery
 import matplotlib.pyplot as plt
 
 opt = "utilization"
-loma_lpf_limit = 7
+loma_exhaustive = True
 load_only = False
-nn_name = "AlexNet"
+nn_name = "MobileNet_v3_small"
 nn_path = "NN_layers/" + nn_name + ".py"
 plot_data_path = "temporal_mapping_optimizer/plots_data"
 plot_path = "temporal_mapping_optimizer/plots"
 
-def get_layer_perf(nn_name, layer_idx, loma_lpf_limit, plot_data_path, layer_post):
+def get_layer_perf(nn_name, layer_idx, loma_exhaustive, plot_data_path, layer_post):
 
     ######### Fixed Parameters #########
     settings_file_path = "inputs/settings.yaml"
@@ -70,32 +70,36 @@ def get_layer_perf(nn_name, layer_idx, loma_lpf_limit, plot_data_path, layer_pos
 
     # Find the lpf_limit giving the closest loma execution time to mcmc
     # For 907,200 combinations => 359 sec, we assume linear relation
-    lpf_limit = 5
-    delta_t_list = []
+    if loma_exhaustive:
+        lpf_limit = 99
+    else:
+        lpf_limit = 5
+        delta_t_list = []
 
-    for i in range(0, 10):
-        lpf_limit += 1
-        tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, su, lpf_limit)
-        estimated_loma_exec_time = (359/907200)*tl_combinations
-        delta_t_list.append(abs(mcmc_exec_time - estimated_loma_exec_time))
+        for i in range(0, 10):
+            lpf_limit += 1
+            tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, su, lpf_limit)
+            estimated_loma_exec_time = (359/907200)*tl_combinations
+            delta_t_list.append(abs(mcmc_exec_time - estimated_loma_exec_time))
 
-    lpf_limit = delta_t_list.index(min(delta_t_list)) + 5
+        lpf_limit = delta_t_list.index(min(delta_t_list)) + 5
+        print("TD with Mcmc :", min(delta_t_list))
+
     print("LPF Limit :", lpf_limit)
-    print("TD with Mcmc :", min(delta_t_list))
-
     settings_doc["temporal_mapping_search_method"] = "loma"
-
-    with open(settings_file_path, "w") as f:
-        yaml.dump(settings_doc, f)
-
-    settings_doc["max_nb_lpf_layer"] = loma_lpf_limit
+    settings_doc["max_nb_lpf_layer"] = lpf_limit
 
     with open(settings_file_path, "w") as f:
         yaml.dump(settings_doc, f)
 
     process = subprocess.Popen(run_zigzag_command.split(), stdout=subprocess.PIPE, text=True)
-    output, error = process.communicate()
-    print(output, error)
+    while True:
+        output = process.stdout.readline()
+        if process.poll() is not None:
+            break
+        if output:
+            print(output.strip())
+    rc = process.poll()
 
     ######### Load and return MCMC and LOMA result for this layer #########
     with open(data_file_path) as f:
@@ -158,7 +162,7 @@ for layer_idx in full_layer_range:
     if layer_idx in duplicate_layer_idx_dict:
         result = [mcmc_perf[duplicate_layer_idx_dict[layer_idx] - 1], loma_perf[duplicate_layer_idx_dict[layer_idx] - 1]]
     else:
-        result = get_layer_perf(nn_name, layer_idx, loma_lpf_limit, plot_data_path, layer_post_list[layer_idx - 1])
+        result = get_layer_perf(nn_name, layer_idx, loma_exhaustive, plot_data_path, layer_post_list[layer_idx - 1])
 
     if opt == "energy" or opt == "utilization":
         mcmc_perf.append(result[0])
