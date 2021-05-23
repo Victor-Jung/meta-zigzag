@@ -1,11 +1,13 @@
 from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids
 
-from loma import limit_lpf, get_prime_factors
+#from loma import limit_lpf, get_prime_factors
 
+from multiprocessing import Process, Queue
 from sympy import factorint, isprime
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from pprint import pprint
 import numpy as np
 import random
 import time
@@ -23,40 +25,40 @@ def tmo_swap(tmo, i, j):
 def evaluate_tmo(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs):
      return get_temporal_loop_estimation(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs)
 
-def form_tmo(layer_architecture, spatial_unrolling):
+def form_tmo(layer_post, spatial_unrolling):
 
-        layer_spec_temporal = {}
-        ids_to_loop_type = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
+     layer_spec_temporal = {}
+     ids_to_loop_type = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
 
-        # Extract the naive TM from the layer architecture contained in layer_post
-        tmo = []
-        for loop_type in ['B','K','C','OY','OX','FY','FX']:
-            layer_spec_temporal[loop_type] = layer_architecture[loop_type]   
+     # Extract the naive TM from the layer architecture contained in layer_post
+     for loop_type, loop_factor in layer_post.items():
+        if (loop_factor != 0 or loop_factor != 1) and (loop_type in ['B','K','C','OY','OX','FY','FX']):
+            layer_spec_temporal[loop_type] = loop_factor
 
-        # Update the temporal layer spec to remove the already spatially unrolled dimensions.
-        for level in range(0, len(spatial_unrolling['W'])):
-            for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
-                loop_type = ids_to_loop_type[loop_type_number]
-                try:
+     # Update the temporal layer spec to remove the already spatially unrolled dimensions.
+     for level in range(0, len(spatial_unrolling['W'])):
+          for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
+               loop_type = ids_to_loop_type[loop_type_number]
+               try:
                     pf = layer_spec_temporal[loop_type]
-                except:
+               except:
                     continue
-                q, rem = divmod(pf, su_factor)
-                assert rem == 0 # pf/su_factor should have remainder 0
-                layer_spec_temporal[loop_type] = q
-        
-        # Then filter the 1-size loops
-        for loop_type, loop_size in list(layer_spec_temporal.items()):
-            if loop_size == 1:
-                layer_spec_temporal.pop(loop_type)
-        
-        return layer_spec_temporal
+               q, rem = divmod(pf, su_factor)
+               assert rem == 0 # pf/su_factor should have remainder 0
+               layer_spec_temporal[loop_type] = q
+     
+     # Then filter the 1-size loops
+     for loop_type, loop_size in list(layer_spec_temporal.items()):
+          if loop_size == 1:
+               layer_spec_temporal.pop(loop_type)
+     
+     return layer_spec_temporal
 
-def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
+def get_lpf_tmo(layer_post, spatial_unrolling):
 
      lpf_tmo = []
-     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
-     layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal, limit_lpf)
+     layer_spec_temporal = form_tmo(layer_post, spatial_unrolling)
+     layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal)
 
      for loop_type in list(layer_spec_pf.keys()):
           for i in range(len(layer_spec_pf[loop_type])):
@@ -66,47 +68,38 @@ def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
 
      return lpf_tmo
 
-def get_min_lpf_size(layer_architecture, spatial_unrolling):
+def get_prime_factors(layer_spec):
 
-     tmo = []
-     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
+    layer_spec_pf = {}
+    layer_spec_pf_count = {}
+    layer_spec_pf_count_sum = {}
 
-     for loop_id, loop_size in list(layer_spec_temporal.items()):
-            if loop_size != 1:
-                tmo.append((loop_id, loop_size))
+    for loop_type, loop_dimension in layer_spec.items():
+        if loop_dimension == 0 or loop_dimension == 1:
+            continue
+        factors = factorint(loop_dimension)
+        pfs = []
+        counts = []
+        for pf, count in factors.items():
+            pfs.append(pf)
+            counts.append(count)
+        layer_spec_pf[loop_type] = tuple(pfs)
+        layer_spec_pf_count[loop_type] =  tuple(counts)
+        layer_spec_pf_count_sum[loop_type] = sum(counts)
+    
+    total_lpf_count = sum(layer_spec_pf_count_sum.values())
 
-     return len(tmo)
+    #layer_spec_pf, layer_spec_pf_count, total_lpf_count = limit_lpf(layer_spec_pf, layer_spec_pf_count, layer_spec_pf_count_sum, lpf_limit)
 
-def get_max_lpf_size(layer_architecture, spatial_unrolling):
-
-     tmo = []
-     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
-
-     for loop_id, loop_size in list(layer_spec_temporal.items()):
-            if loop_size != 1:
-                tmo.append((loop_id, loop_size))
-
-     # Break it down to LPF (Loop Prime Factor)
-     tmo_pf = []
-     for inner_loop in tmo:
-          if inner_loop[1] == 1:
-               tmo_pf.append(inner_loop)
-          else:
-               factors = factorint(inner_loop[1])
-               for factor in factors.items():
-                    for pow in range(factor[1]):
-                         tmo_pf.append((inner_loop[0], factor[0]))
-     
-     return len(tmo_pf)
+    return layer_spec_pf, layer_spec_pf_count, total_lpf_count
     
 
-def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
-         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False):
+def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
+          input_settings, mem_scheme, ii_su, spatial_unrolling, opt, results_queue, verbose=0, plot=False):
 
      start_time = time.time()
 
      # Hyperparameters
-     #iter = 2000
      temperature = 0.05
      rho = 0.999
 
@@ -141,7 +134,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      old_tmo = start_tmo
 
      for k in range(iter):
-          i = np.random.randint(0, len(old_tmo)) 
+          i = np.random.randint(0, len(old_tmo))
           j = np.random.randint(0, len(old_tmo))
 
           new_tmo = tmo_swap(old_tmo, i, j)
@@ -187,9 +180,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      end_time = time.time()
      exec_time = end_time - start_time
 
-     #print("Best utilization :", best_utilization)
-     print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
-     print("Best value :", best_value)
+     if verbose == 1:
+          print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
 
      if plot:
           plt.figure(1)
@@ -214,4 +206,5 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
           plt.show()
 
+     results_queue.put([best_value, best_tmo, exec_time])
      return best_value, best_tmo, exec_time

@@ -13,6 +13,7 @@ from datetime import datetime
 import evaluate
 from classes.multi_manager import MultiManager
 from im2col_funcs import im2col_layer_transform
+from pprint import pprint
 
 if __name__ == "__main__":
 

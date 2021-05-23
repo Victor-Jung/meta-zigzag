@@ -1,3 +1,4 @@
+from multiprocessing import Process, Queue, cpu_count
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -87,42 +88,33 @@ def mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, 
 def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
                                   spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
-    print("--------- Monte Carlo Markov Chain (MCMC) Temporal Mapping Optimization ---------")
-    print(temporal_mapping_ordering)
-    #mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
-    #                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-    #return
-
-    # Evaluate the min lpf size and the max lpf for the current layer
-    min_lpf = get_min_lpf_size(layer.size_list_output_print, spatial_unrolling)
-    max_lpf = get_max_lpf_size(layer.size_list_output_print, spatial_unrolling) + 1
-    min_lpf = max_lpf - 1
+    print("--------- Simulated Annealing Monte Carlo Markov Chain (SA-MCMC) Temporal Mapping Optimization ---------")
 
     opt = "utilization"
-    number_of_runs = 1
+    number_of_thread = 2
 
     if opt == "energy":
-        optimize("energy", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        optimize("energy", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+
     elif opt == "utilization":
-        optimize("utilization", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        optimize("utilization", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+
     elif opt == "pareto":
-        optimize("energy", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        optimize("energy", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-        optimize("utilization", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        optimize("utilization", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-        optimize("pareto", number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
 
-def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
-
-    curr_lpf = min_lpf
 
     exec_time_list = []
     best_value_list = []
@@ -134,55 +126,54 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
     elif opt == "utilization":
         best_value = 0
 
-    print("Generating MCMC run between", max_lpf - min_lpf, 
-    "differents lpf size, from", min_lpf, "to", max_lpf, "lpf")
+    starting_tmo = get_lpf_tmo(layer_post, spatial_unrolling)
     
-    for i in range(max_lpf - min_lpf):
+    # Launch threads
+    worker_list = []
+    results_queue = Queue()
+    for i in range(0, min(number_of_thread, cpu_count())):
+        p = Process(target=mcmc, args=(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+                    spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, results_queue, 0, False))
+        worker_list.append(p)
+        p.start()
 
-        # Generate TMO with given LPF
-        starting_tmo = get_lpf_limited_tmo(layer_post, spatial_unrolling, curr_lpf)
+    # Block while all process are not finished
+    for worker in worker_list:
+        worker.join()
 
-        print("LPF size ", curr_lpf, ":", starting_tmo)
-        curr_lpf += 1
-        
-        for run in range(number_of_runs):
+    # Collect results from the queue and extract the best
+    for i in range(0, min(number_of_thread, cpu_count())):
+        result = results_queue.get()
+        if ((opt == "energy" or opt == "pareto") and result[0] < best_value) or (opt == "utilization" and result[0] > best_value):
+            best_value = result[0]
+            best_tmo = result[1]
+            best_exec_time = result[2]
 
-            value, tmo, exec_time = mcmc(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
-                                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, plot=False)
-            
-            if ((opt == "energy" or opt == "pareto") and value < best_value) or (opt == "utilization" and value > best_value):
-                best_tmo = tmo
-                best_value = value
-                best_exec_time = exec_time
+    if opt == "pareto":
+        pareto_en, pareto_ut = get_temporal_loop_estimation(best_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+        pareto_en_list.append(pareto_en.item())
+        pareto_ut_list.append(pareto_ut)
     
-        best_value_list.append(best_value)
-        exec_time_list.append(best_exec_time)
+    if opt == "energy":
+        print("Best Energy :", best_value)
+    elif opt == "utilization":
+        print("Best Utilization :", best_value)
+    elif opt == "pareto":
+        print("Best Pareto Score :", best_value)
 
-        if opt == "pareto":
-            pareto_en, pareto_ut = get_temporal_loop_estimation(best_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-            pareto_en_list.append(pareto_en.item())
-            pareto_ut_list.append(pareto_ut)
-        
-        if opt == "energy":
-            print("Best Energy :", best_value)
-        elif opt == "utilization":
-            print("Best Utilization :", best_value)
-        elif opt == "pareto":
-            print("Best Pareto Score :", best_value)
-
-        print("Best tmo :", best_tmo)
-        print("Exec time", exec_time)  
+    print("Best tmo :", best_tmo)
+    print("Exec time", best_exec_time)  
 
     # Store result in visualisation_data
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
         data_doc = yaml.safe_load(f)
 
     if opt == "energy":
-        data_doc["mcmc_en_list"] = best_value_list
+        data_doc["mcmc_en_list"] = best_value
     elif opt == "utilization":
-        data_doc["mcmc_ut_list"] = best_value_list
+        data_doc["mcmc_ut_list"] = best_value
     elif opt == "pareto":
-        data_doc["mcmc_pareto_list"] = best_value_list
+        data_doc["mcmc_pareto_list"] = best_value
         data_doc["mcmc_pareto_en_list"] = pareto_en_list
         data_doc["mcmc_pareto_ut_list"] = pareto_ut_list
 
@@ -194,7 +185,6 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
                     su[op][mem_lv_idx][loop_idx] = list(loop)
 
     data_doc["mcmc_exec_time_list"] = exec_time_list
-    data_doc["lpf_range"] = [*range(min_lpf, max_lpf)]
     data_doc["su"] = su
     
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
