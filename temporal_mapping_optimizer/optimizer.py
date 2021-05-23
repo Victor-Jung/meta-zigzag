@@ -88,7 +88,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                                   spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
     print("--------- Monte Carlo Markov Chain (MCMC) Temporal Mapping Optimization ---------")
-
+    print(temporal_mapping_ordering)
     #mcmc_proba_plot(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
     #                spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     #return
@@ -199,4 +199,5 @@ def optimize(opt, number_of_runs, min_lpf, max_lpf, temporal_mapping_ordering, l
     
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
         yaml.dump(data_doc, f)
-    
+
+    return best_value_list

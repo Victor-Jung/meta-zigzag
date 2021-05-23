@@ -1,0 +1,73 @@
+PE_array:                                       
+  Col : 14
+  Row : 16
+
+precision:
+  I : 8
+  W : 8
+  O_partial : 16
+  O_final : 8
+
+single_mac_energy_active : 0.0012
+single_mac_energy_idle :   0.0002
+
+
+# The characteristics of the systolic flow of data in the array:
+# 1 is horizontal
+# 2 is vertical
+# 3 is diagonal
+# 0 is non-systolic
+mac_array_stall :
+  systolic: 0
+
+############### you need to set them if doing architecture search ###############
+area_max : 3.5e15
+area_utilization : 0
+mem_ratio : 8                                   # minimum ratio between two adjacent levels in the memory hierarchy
+PE_memory_depth : 1                             # max number of memory levels in the hierarchy inside the PEs
+PE_threshold : 2000                             # maximum memory size that can be stored inside each PE
+CHIP_memory_depth : 3                           # max number of memory levels in the hierarchy outside the PEs
+
+banking : [1]                                   # memory banking possibility when construct a behaviour memory level
+                                                # with physical memory modules from the memory pool.
+
+L2_size:                                        # Each size listed is expressed as a behaviour memory level drawn from the memory pool
+  [4194304, 16777216]          # when does it have to be specified? For now it has to be there when doing architecture search.
+L1_size:
+  [262144]
+
+memory_hint:
+  DRAM:
+      memory_instance : OFFCHIP
+      memory_unroll : 1
+      operand_stored : [O,I,W]
+#################################################################################
+
+############# you need to set them if not doing architecture search #############
+memory_hierarchy:
+  rf_psum:
+      memory_instance : spad_48byte              # element in the memory pool which is taken;
+      memory_unroll : 256                        # number of separate instances present in the architecture
+      operand_stored : [O]
+  rf_input:
+      memory_instance: spad_24byte
+      memory_unroll: 256
+      operand_stored: [I]
+  rf_weight:
+      memory_instance: spad_448byte
+      memory_unroll: 256
+      operand_stored: [W]
+  global_buffer:
+      memory_instance: buffer_108Kbyte
+      memory_unroll: 1
+      operand_stored: [I, O]
+  top_sram:
+      memory_instance: sram_big
+      memory_unroll: 1
+      operand_stored: [W,I,O]
+#################################################################################
+
+# If the below parameter is set as True and fixed_spatial_unrolling (in settings.yaml) is False,
+# and spatial_unrolling_search_method is exhaustive / heuristic_v1 / heuristic_v2,
+# the tool will try out all possible memory unrolling combinations.
+memory_unroll_fully_flexible: True
