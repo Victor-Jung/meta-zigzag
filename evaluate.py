@@ -556,11 +556,30 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                                                              layer_comb, spatial_loop_comb, ii_su)
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
-
-        val = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
+        
+        val, tmo, exec_time = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
                                              input_settings, mem_scheme, ii_su, spatial_unrolling)
+        
+        # Converto tmo to list of list instead of list of tuple     
 
-        print("Best Value Found :", val)
+        mem_idx = mem_scheme_index
+        parent_folder = "%s/" % (input_settings.results_path)
+
+        # First Create the folder for the current NN if it doesn't exist
+        if not os.path.exists(parent_folder):
+            os.makedirs(parent_folder)
+        if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+            os.makedirs(parent_folder + "/" + input_settings.results_filename)
+
+        with open(parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml", "r+") as f:
+            data_doc = yaml.safe_load(f)
+        data_doc = dict()
+        data_doc[layer_index] = {'mcmc': {'val': val}}
+        data_doc[layer_index]['mcmc']['tmo'] = tmo
+        data_doc[layer_index]['mcmc']['exec_time'] = exec_time
+
+        with open(parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml", "r+") as f:
+            yaml.dump(data_doc, f)
 
         return 
 

@@ -98,7 +98,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "utilization":
-        optimize("utilization", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        val, tmo, exec_time = optimize("utilization", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "pareto":
@@ -109,6 +109,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
         optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
+    return val, tmo, exec_time
 
 def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -164,7 +165,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     print("Best tmo :", best_tmo)
     print("Exec time", best_exec_time)  
 
-    # Store result in visualisation_data
+    '''# Store result in visualisation_data
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
         data_doc = yaml.safe_load(f)
 
@@ -188,6 +189,6 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     data_doc["su"] = su
     
     with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
-        yaml.dump(data_doc, f)
+        yaml.dump(data_doc, f)'''
 
-    return best_value_list
+    return best_value, best_tmo, best_exec_time
