@@ -91,10 +91,10 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
     print("--------- Simulated Annealing Monte Carlo Markov Chain (SA-MCMC) Temporal Mapping Optimization ---------")
 
     opt = "utilization"
-    number_of_thread = 2
+    number_of_thread = 8
 
     if opt == "energy":
-        optimize("energy", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
+        val, tmo, exec_time = optimize("energy", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "utilization":
@@ -109,7 +109,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
         optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
-    return val, tmo, exec_time
+    return val, tmo, exec_time, opt
 
 def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -164,31 +164,5 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
 
     print("Best tmo :", best_tmo)
     print("Exec time", best_exec_time)  
-
-    '''# Store result in visualisation_data
-    with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
-        data_doc = yaml.safe_load(f)
-
-    if opt == "energy":
-        data_doc["mcmc_en_list"] = best_value
-    elif opt == "utilization":
-        data_doc["mcmc_ut_list"] = best_value
-    elif opt == "pareto":
-        data_doc["mcmc_pareto_list"] = best_value
-        data_doc["mcmc_pareto_en_list"] = pareto_en_list
-        data_doc["mcmc_pareto_ut_list"] = pareto_ut_list
-
-    su = spatial_loop_comb[0].spatial_loop
-    for op in ['W', 'I', 'O']:
-        for mem_lv_idx, mem_lv in enumerate(su[op]):
-            for loop_idx, loop in enumerate(su[op][mem_lv_idx]):
-                if type(loop) is tuple:
-                    su[op][mem_lv_idx][loop_idx] = list(loop)
-
-    data_doc["mcmc_exec_time_list"] = exec_time_list
-    data_doc["su"] = su
-    
-    with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
-        yaml.dump(data_doc, f)'''
 
     return best_value, best_tmo, best_exec_time

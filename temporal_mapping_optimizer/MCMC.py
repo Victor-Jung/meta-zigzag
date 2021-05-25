@@ -133,6 +133,21 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      best_tmo = start_tmo
      old_tmo = start_tmo
 
+     # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
+     if start_tmo == []:
+          energy, utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          if opt == "energy":
+               best_value = energy.item()
+          elif opt == "utilization":
+               best_value = utilization
+          elif opt == "pareto":
+               best_value = energy.item()/utilization
+
+          exec_time = time.time() - start_time
+
+          results_queue.put([best_value, start_tmo, exec_time])
+          return best_value, start_tmo, exec_time
+
      for k in range(iter):
           i = np.random.randint(0, len(old_tmo))
           j = np.random.randint(0, len(old_tmo))

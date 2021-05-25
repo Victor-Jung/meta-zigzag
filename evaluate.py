@@ -417,8 +417,39 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         start_time = time.time()
 
         lpf_limit = input_settings.max_nb_lpf_layer
+        adaptative_lpf_limit = True 
+
+        if adaptative_lpf_limit:
+            mem_idx = mem_scheme_index
+            parent_folder = "%s" % (input_settings.results_path)
+            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
+
+            # Try to get the mcmc exec time
+            if os.path.exists(file_name):
+                with open(file_name, "r") as f:
+                    data_doc = yaml.safe_load(f)
+                if layer_index in data_doc.keys():
+                    if 'mcmc' in data_doc[layer_index].keys():
+
+                        mcmc_exec_time = data_doc[layer_index]['mcmc']['exec_time']
+                        lpf_limit = 5
+                        delta_t_list = []
+
+                        for i in range(0, 10):
+                            lpf_limit += 1
+                            tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling, lpf_limit)
+                            estimated_loma_exec_time = (359/907200)*tl_combinations
+                            delta_t_list.append(abs(mcmc_exec_time - estimated_loma_exec_time))
+
+                        lpf_limit = delta_t_list.index(min(delta_t_list)) + 5
+                        print("Adaptative lpf limit selected :", lpf_limit)
+                        print("MCMC exec time :", mcmc_exec_time)
+                        print("Time Difference with MCMC :", min(delta_t_list))
+
+
         tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling,
                                                                                   lpf_limit)
+                                                                              
         t2 = time.time()
         t_tmg = int(t2 - t1)
         now = datetime.now()
@@ -533,20 +564,34 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                 #         pickle.dump(elem, f)
                 #     f.close()
 
+        mem_idx = mem_scheme_index
+        exec_time = end_time - start_time
+        parent_folder = "%s" % (input_settings.results_path)
+        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
 
-        # Store result in visualisation_data
-        
-        with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml") as f:
+        # First Create the folder for the current NN if it doesn't exist
+        if not os.path.exists(parent_folder):
+            os.makedirs(parent_folder)
+        if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+            os.makedirs(parent_folder + "/" + input_settings.results_filename)
+        if not os.path.exists(file_name):
+            open(file_name, 'a').close()
+
+        with open(file_name, "r") as f:
             data_doc = yaml.safe_load(f)
 
-        data_doc["loma_ut_list"].append(best_utilization)
-        data_doc["loma_en_list"].append(best_energy.item())
-        data_doc["loma_pareto_score_list"].append(best_pareto_score.item())
-        data_doc["loma_pareto_en_list"].append(best_pareto_energy.item())
-        data_doc["loma_pareto_ut_list"].append(best_pareto_utilization)
-        data_doc["loma_exec_time_list"].append(end_time - start_time)
-
-        with open("temporal_mapping_optimizer/plots_data/visualisation_data.yaml", "w") as f:
+        if data_doc == None:
+            data_doc = dict()
+        if layer_index not in data_doc.keys():
+            data_doc[layer_index] = dict()
+        if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
+            data_doc[layer_index] = {'mcmc': {}, 'loma': {}}
+        
+        data_doc[layer_index]['loma']['en'] = best_energy.item()
+        data_doc[layer_index]['loma']['ut'] = best_utilization
+        data_doc[layer_index]['loma']['exec_time'] = exec_time
+        
+        with open(file_name, "w") as f:
             yaml.dump(data_doc, f)
 
         # Convert output, which is just best allocated order at this point, to a CostModelOutput object
@@ -557,28 +602,47 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
         
-        val, tmo, exec_time = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
+        val, tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
                                              input_settings, mem_scheme, ii_su, spatial_unrolling)
         
-        # Converto tmo to list of list instead of list of tuple     
+        # Convert tmo to list of list instead of list of tuple   
+        for idx, loop in enumerate(tmo):
+            tmo[idx] = list(loop)
 
         mem_idx = mem_scheme_index
-        parent_folder = "%s/" % (input_settings.results_path)
+        parent_folder = "%s" % (input_settings.results_path)
+        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
 
         # First Create the folder for the current NN if it doesn't exist
         if not os.path.exists(parent_folder):
             os.makedirs(parent_folder)
         if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
             os.makedirs(parent_folder + "/" + input_settings.results_filename)
+        if not os.path.exists(file_name):
+            open(file_name, 'a').close()
 
-        with open(parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml", "r+") as f:
+        with open(file_name, "r") as f:
             data_doc = yaml.safe_load(f)
-        data_doc = dict()
-        data_doc[layer_index] = {'mcmc': {'val': val}}
-        data_doc[layer_index]['mcmc']['tmo'] = tmo
+
+        if data_doc == None:
+            data_doc = dict()
+        if layer_index not in data_doc.keys():
+            data_doc[layer_index] = dict()
+        if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
+            data_doc[layer_index] = {'mcmc': {}, 'loma': {}}
+        
+        if opt == 'energy':
+            data_doc[layer_index]['mcmc']['en'] = val
+            data_doc[layer_index]['mcmc']['en_tmo'] = tmo
+        elif opt == 'utilization':
+            data_doc[layer_index]['mcmc']['ut'] = val
+            data_doc[layer_index]['mcmc']['ut_tmo'] = tmo
+        elif opt == 'pareto':
+            a = 5
+        
         data_doc[layer_index]['mcmc']['exec_time'] = exec_time
 
-        with open(parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml", "r+") as f:
+        with open(file_name, "w") as f:
             yaml.dump(data_doc, f)
 
         return 
