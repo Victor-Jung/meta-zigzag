@@ -3,7 +3,7 @@ import sys
 import yaml
 import shlex
 import subprocess
-sys.path.append(r'/users/micasgst/vjung/Documents/reinforcement-learning-zigzag')
+sys.path.append(r'/users/micasgst/vjung/Documents/zigzag')
 import classes as cls
 import loma
 from copy import deepcopy
@@ -199,6 +199,7 @@ loma_layer_range = []
 for i in range(len(full_layer_range)):
     loma_layer_range.append(full_layer_range[i] + 0.5/2)
     mcmc_layer_range.append(full_layer_range[i] - 0.5/2)
+
 
 plt.bar(mcmc_layer_range, mcmc_perf, label='mcmc', color='tab:orange', width = 0.5, alpha=0.66, linewidth=2)
 plt.bar(loma_layer_range, loma_perf, label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)

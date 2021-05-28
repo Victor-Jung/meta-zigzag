@@ -422,7 +422,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         if adaptative_lpf_limit:
             mem_idx = mem_scheme_index
             parent_folder = "%s" % (input_settings.results_path)
-            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
+            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
 
             # Try to get the mcmc exec time
             if os.path.exists(file_name):
@@ -441,7 +441,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                             estimated_loma_exec_time = (359/907200)*tl_combinations
                             delta_t_list.append(abs(mcmc_exec_time - estimated_loma_exec_time))
 
-                        lpf_limit = delta_t_list.index(min(delta_t_list)) + 5
+                        lpf_limit = delta_t_list.index(min(delta_t_list)) + 5 + 1
                         print("Adaptative lpf limit selected :", lpf_limit)
                         print("MCMC exec time :", mcmc_exec_time)
                         print("Time Difference with MCMC :", min(delta_t_list))
@@ -509,7 +509,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         best_output_pareto = None
         best_energy = float('inf')
         best_energy_utilization = 0
+        best_energy_latency = float('inf')
         best_utilization = 0
+        best_latency = float('inf')
         best_utilization_energy = float('inf')
         best_pareto_score = float('inf')
         best_pareto_energy = float('inf')
@@ -527,15 +529,17 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             Path(parent_folder).mkdir(parents=True, exist_ok=True)
 
         # Loop through the best energy/ut found by the parallel processes to find the overall best one
-        for (min_en, min_en_ut, min_en_output, max_ut_en, max_ut, max_ut_output, en_collect, ut_collect,
-             lat_collect, min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_output) in results:
+        for (min_en, min_en_ut, min_en_lat, min_en_output, max_ut_en, max_ut, min_lat, max_ut_output, 
+            en_collect, ut_collect, lat_collect, min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_output) in results:
             if (min_en < best_energy or (min_en == best_energy and min_en_ut > best_energy_utilization)):
                 best_energy = min_en
                 best_energy_utilization = min_en_ut
+                best_energy_latency = min_en_lat
                 best_output_energy = min_en_output
             if (max_ut > best_utilization or (max_ut == best_utilization and max_ut_en < best_utilization_energy)):
                 best_utilization_energy = max_ut_en
                 best_utilization = max_ut
+                best_latency = min_lat
                 best_output_utilization = max_ut_output
             if (min_pareto_score < best_pareto_score) or (min_pareto_score == best_pareto_score and (min_pareto_en < best_pareto_energy or min_pareto_ut > best_pareto_utilization)):
                 best_pareto_score = min_pareto_score
@@ -567,7 +571,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         mem_idx = mem_scheme_index
         exec_time = end_time - start_time
         parent_folder = "%s" % (input_settings.results_path)
-        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
+        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
 
         # First Create the folder for the current NN if it doesn't exist
         if not os.path.exists(parent_folder):
@@ -589,7 +593,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         
         data_doc[layer_index]['loma']['en'] = best_energy.item()
         data_doc[layer_index]['loma']['ut'] = best_utilization
+        data_doc[layer_index]['loma']['lat'] = best_latency
         data_doc[layer_index]['loma']['exec_time'] = exec_time
+        data_doc[layer_index]['loma']['lpf_limit'] = lpf_limit
         
         with open(file_name, "w") as f:
             yaml.dump(data_doc, f)
@@ -602,18 +608,20 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
         
-        val, tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, spatial_loop_comb,
-                                             input_settings, mem_scheme, ii_su, spatial_unrolling)
-        
+        best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+                                                                                            spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+        print(best_en_tmo)
         # Convert tmo to list of list instead of list of tuple   
-        for idx, loop in enumerate(tmo):
-            tmo[idx] = list(loop)
+        for idx, loop in enumerate(best_en_tmo):
+            best_en_tmo[idx] = list(loop)
+        for idx, loop in enumerate(best_ut_tmo):
+            best_ut_tmo[idx] = list(loop)
 
         mem_idx = mem_scheme_index
         parent_folder = "%s" % (input_settings.results_path)
-        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_ut_" + "Arch" + str(mem_idx) + ".yaml"
+        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
 
-        # First Create the folder for the current NN if it doesn't exist
+        # Create the folder for the current NN if it doesn't exist
         if not os.path.exists(parent_folder):
             os.makedirs(parent_folder)
         if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
@@ -631,15 +639,11 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
             data_doc[layer_index] = {'mcmc': {}, 'loma': {}}
         
-        if opt == 'energy':
-            data_doc[layer_index]['mcmc']['en'] = val
-            data_doc[layer_index]['mcmc']['en_tmo'] = tmo
-        elif opt == 'utilization':
-            data_doc[layer_index]['mcmc']['ut'] = val
-            data_doc[layer_index]['mcmc']['ut_tmo'] = tmo
-        elif opt == 'pareto':
-            a = 5
-        
+        data_doc[layer_index]['mcmc']['en'] = best_en
+        data_doc[layer_index]['mcmc']['en_tmo'] = best_en_tmo
+        data_doc[layer_index]['mcmc']['ut'] = best_ut
+        data_doc[layer_index]['mcmc']['lat'] = best_lat
+        data_doc[layer_index]['mcmc']['ut_tmo'] = best_ut_tmo
         data_doc[layer_index]['mcmc']['exec_time'] = exec_time
 
         with open(file_name, "w") as f:

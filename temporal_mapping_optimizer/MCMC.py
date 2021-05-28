@@ -118,14 +118,15 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      # Initalization of a random starting point
      random.shuffle(start_tmo)
 
-     start_energy, start_utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     start_energy, start_utilization, start_latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
           best_value = start_energy.item()
           old_value = start_energy.item()
-     elif opt == "utilization":
-          best_value = start_utilization
-          old_value = start_utilization
+     elif opt == "latency":
+          best_value = start_latency
+          old_value = start_latency
+          best_ut = start_utilization
      elif opt == "pareto":
           best_value = start_energy/start_utilization
           old_value = start_energy/start_utilization
@@ -135,17 +136,19 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
-          energy, utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-          if opt == "energy":
-               best_value = energy.item()
-          elif opt == "utilization":
-               best_value = utilization
-          elif opt == "pareto":
-               best_value = energy.item()/utilization
-
+          
+          energy, utilization, latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
           exec_time = time.time() - start_time
 
-          results_queue.put([best_value, start_tmo, exec_time])
+          if opt == "energy":
+               best_value = energy.item()
+               results_queue.put([best_value, best_tmo, exec_time, opt])
+          elif opt == "latency":
+               best_value = latency
+               results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+          elif opt == "pareto":
+               best_value = energy.item()/utilization
+          
           return best_value, start_tmo, exec_time
 
      for k in range(iter):
@@ -154,12 +157,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
           new_tmo = tmo_swap(old_tmo, i, j)
 
-          new_energy, new_utilization = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          new_energy, new_utilization, new_latency = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
           if opt == "energy":
                new_value = new_energy.item()
-          elif opt == "utilization":
-               new_value = new_utilization
+          elif opt == "latency":
+               new_value = new_latency
           elif opt == "pareto":
                new_value = new_energy.item()/new_utilization
 
@@ -167,8 +170,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           
           if opt == "energy":
                p = np.exp(((old_value / new_value) - 1) / temperature)
-          elif opt == "utilization":
-               p = np.exp((new_value - old_value) / temperature)
+          elif opt == "latency":
+               p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "pareto":
                p = np.exp(((old_value / new_value) - 1) / temperature)
 
@@ -186,9 +189,10 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
                     exploration_counter += 1
                
                # We want to maximize utilization, minimize energy and pareto_score
-               if ((opt == "energy" or opt == "pareto") and old_value < best_value) or (opt == "utilization" and old_value > best_value):
+               if old_value < best_value:
                     best_tmo = old_tmo
-                    best_value = old_value    
+                    best_value = old_value
+                    best_ut = new_utilization
           else:
                rejection_counter += 1
 
@@ -221,5 +225,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
           plt.show()
 
-     results_queue.put([best_value, best_tmo, exec_time])
+     if opt == 'latency':
+          results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+     else:
+          results_queue.put([best_value, best_tmo, exec_time, opt])
+          
      return best_value, best_tmo, exec_time
