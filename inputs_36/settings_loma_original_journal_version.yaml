@@ -1,8 +1,8 @@
 
 # OUTPUT FILE
 result_path : './results_36'
-result_filename : AlexNet
-layer_filename : './NN_layers/AlexNet'
+result_filename : MobileNet_v3_small
+layer_filename : './NN_layers/MobileNet_v3_small'
 
 
 # OUTPUT FILE PRINTING MODE
@@ -63,4 +63,4 @@ spatial_utilization_threshold : 0
 im2col_enable_for_all_layers : False
 im2col_enable_for_pointwise_layers : False
 
-max_nb_lpf_layer: 6
+max_nb_lpf_layer: 16

@@ -47,6 +47,8 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
 
+    iter_number = 1000
+
     exec_time_list = []
     best_value_list = []
     pareto_en_list = []
@@ -73,18 +75,18 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Launch threads
     if opt == "mixed":
         for i in range(0, en_core):
-            p = Process(target=mcmc, args=(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'energy', results_queue, 0, False))
             worker_list.append(p)
             p.start()
         for i in range(0, ut_core):
-            p = Process(target=mcmc, args=(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'latency', results_queue, 0, False))
             worker_list.append(p)
             p.start()
     else:
         for i in range(0, min(number_of_thread, cpu_count())):
-            p = Process(target=mcmc, args=(starting_tmo, 2000, layer, im2col_layer, layer_rounded, 
+            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, results_queue, 0, False))
             worker_list.append(p)
             p.start()

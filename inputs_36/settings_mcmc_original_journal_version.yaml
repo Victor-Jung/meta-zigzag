@@ -1,8 +1,8 @@
 
 # OUTPUT FILE
 result_path : './results_36'
-result_filename : AlexNet
-layer_filename : './NN_layers/AlexNet'
+result_filename : MobileNet_v3_small
+layer_filename : './NN_layers/MobileNet_v3_small'
 
 
 # OUTPUT FILE PRINTING MODE

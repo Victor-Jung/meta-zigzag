@@ -100,8 +100,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      start_time = time.time()
 
      # Hyperparameters
-     temperature = 0.05
-     rho = 0.999
+     max_temperature = 0.05
+     min_temperature = max_temperature*(0.999**2000)
+     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
 
      accepted_p_list = []
      accepted_value_list = []
@@ -151,7 +152,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           
           return best_value, start_tmo, exec_time
 
-     for k in range(iter):
+     for temperature in temperature_linspace:
           i = np.random.randint(0, len(old_tmo))
           j = np.random.randint(0, len(old_tmo))
 
@@ -174,8 +175,6 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
                p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "pareto":
                p = np.exp(((old_value / new_value) - 1) / temperature)
-
-          temperature = temperature * rho
 
           if(x < p):        
                old_tmo = new_tmo.copy()

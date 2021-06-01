@@ -732,6 +732,11 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                     energy_collect.append(int(en))
                                     utilization_collect.append(ut)
                                     latency_collect.append(utilization.latency_no_load)
+                                
+                                if nonmerged_order == [(2,3),(1,3),(4,2),(4,7),(4,2),(4,2),(3,2),(3,2)]:
+                                    print("En :", en)
+                                    print(allocated_order)
+                                    print(spatial_loop.spatial_loop)
 
                                 # if ctr % 1000 == 0:
                                 #     print(ctr, "Execution time =", time.time()-t_start)

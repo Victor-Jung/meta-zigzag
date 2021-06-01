@@ -11,6 +11,7 @@ import msg
 import output_funcs as of
 from classes.order import Order
 from loma_utils import permutations
+from classes.layer_rounding import mem_access_count_correct
 
 loop_types_list = ["FX", "FY", "OX", "OY", "C", "K", "B"]
 # Corresponding number for each loop_type {"FX": 1, "FY": 2, "OX": 3, "OY": 4, "C": 5, "K": 6, "B": 7}
@@ -589,7 +590,7 @@ def perform_greedy_mapping(layer_origin, allocated_order, spatial_loop_fractiona
     """
     if input_settings.spatial_unrolling_mode in [4, 5]:
         ############# Advanced User Configuration #############
-        # mem_energy_saving_when_BW_under_utilized = True
+        mem_energy_saving_when_BW_under_utilized = False
         #######################################################
         temporal_loop_fractional = cls.TemporalLoop.extract_loop_info(
             layer_origin, allocated_order, spatial_loop_fractional
@@ -601,8 +602,8 @@ def perform_greedy_mapping(layer_origin, allocated_order, spatial_loop_fractiona
             input_settings.precision,
             input_settings.fixed_temporal_mapping,
         )
-        # if mem_energy_saving_when_BW_under_utilized is False:
-        #     loop_fractional = mem_access_count_correct(loop_fractional, loop)
+        if mem_energy_saving_when_BW_under_utilized is False:
+            loop_fractional = mem_access_count_correct(loop_fractional, loop)
 
     else:
         loop_fractional = loop
