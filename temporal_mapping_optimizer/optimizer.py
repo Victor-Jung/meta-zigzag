@@ -47,7 +47,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
 
-    iter_number = 1000
+    iter_number = 500
 
     exec_time_list = []
     best_value_list = []
@@ -81,7 +81,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
             p.start()
         for i in range(0, ut_core):
             p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
-                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'latency', results_queue, 0, False))
+                        spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'latency', results_queue, 0, True))
             worker_list.append(p)
             p.start()
     else:
@@ -99,11 +99,11 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     if opt == "mixed":
         for i in range(0, max_core):
             result = results_queue.get()
-            if ((len(result) == 4) and result[0] < best_en):
+            if ((len(result) == 5) and result[0] < best_en):
                 best_en = result[0]
                 best_en_tmo = result[1]
                 exec_time = result[2]
-            if (len(result) == 5 and result[0] < best_lat):
+            if (len(result) == 6 and result[0] < best_lat):
                 best_lat = result[0]
                 best_ut = result[1]
                 best_lat_tmo = result[2]

@@ -106,6 +106,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
      accepted_p_list = []
      accepted_value_list = []
+     value_list = []
      explotation_counter = 0
      exploration_counter = 0
      rejection_counter = 0
@@ -135,6 +136,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      best_tmo = start_tmo
      old_tmo = start_tmo
 
+     value_list.append(start_utilization)
+
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
           
@@ -153,6 +156,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           return best_value, start_tmo, exec_time
 
      for temperature in temperature_linspace:
+
           i = np.random.randint(0, len(old_tmo))
           j = np.random.randint(0, len(old_tmo))
 
@@ -195,13 +199,19 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           else:
                rejection_counter += 1
 
+          value_list.append(new_utilization)
+
      end_time = time.time()
      exec_time = end_time - start_time
 
      if verbose == 1:
           print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
-
+     
      if plot:
+          plt.figure(1)
+          plt.hist(value_list)
+          plt.show()
+          '''
           plt.figure(1)
           plt.title('Utilization of accepted state evolution during the run')
           plt.xlabel("Iteration")
@@ -222,7 +232,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           plt.xlabel("i")
           plt.ylabel("j")
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
-          plt.show()
+          plt.show()'''
 
      if opt == 'latency':
           results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
