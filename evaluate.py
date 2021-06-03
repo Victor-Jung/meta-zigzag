@@ -608,8 +608,6 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
-            exec_time = time.time() - start_time
-
             # Convert tmo to list of list instead of list of tuple   
             for idx, loop in enumerate(best_en_tmo):
                 best_en_tmo[idx] = list(loop)
