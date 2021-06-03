@@ -217,7 +217,9 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
     previous_best_ut = [None, None]
     loma_search_engine = input_settings.tmg_search_method == 2
     RL_search_engine = input_settings.tmg_search_method == 3
-    while (redo_flag and iterate_time < mem_ut_iter_max and not (loma_search_engine or RL_search_engine)):
+    meta_loma_search_engine = input_settings.tmg_search_method == 4
+
+    while (redo_flag and iterate_time < mem_ut_iter_max and not (loma_search_engine or RL_search_engine or meta_loma_search_engine)):
         # print('generated mem ut', mem_scheme.mem_utilization_rate)
         if not input_settings.utilization_optimizer_pruning:
             good_scheme = True
@@ -412,12 +414,250 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             previous_best_en = current_best_en
             previous_best_ut = current_best_ut
 
+    if meta_loma_search_engine and not input_settings.fixed_temporal_mapping:
+
+        start_time = time.time()
+        lpf_limit = 10**3 # We don't want to limit the lpf so it's set to a big number
+        combination_evaluation_capacity = 500 # per core per second
+        core_count = cpu_count()
+        sa_time = 5 # Estimation of Simulated Annealing exec time (constant)
+
+        # Get the number of combination to evaluate if we run exhaustive loma
+        tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling, lpf_limit)
+
+        # Estimate the time exhaustive loma would take (in sec)
+        exh_loma_time = tl_combinations / (core_count * combination_evaluation_capacity)
+
+        print("tl_combinations : ", tl_combinations)
+        print("Loma estimated time : ", exh_loma_time)
+        print("SA estimated time : ", sa_time)
+
+        if exh_loma_time <= sa_time:
+
+            t2 = time.time()
+            t_tmg = int(t2 - t1)
+            now = datetime.now()
+            current_time = now.strftime("%H:%M:%S")
+            if tl_list:
+                str_format = "{0} {1} L {2} , M {3} / {4} , SU {5} / {6}  TMG Finished | Elapsed time: {7} sec | Valid TMs found {8:,}"
+                print(str_format.format(current_time, str(input_settings.layer_filename.split('/')[-1]), layer_index,
+                                        mem_scheme_index + 1, mem_scheme_count, ii_su + 1,
+                                        len(mem_scheme.spatial_unrolling), t_tmg, tl_combinations))
+
+            now = datetime.now()
+            current_time = now.strftime("%H:%M:%S")
+            print(current_time, str(input_settings.layer_filename.split('/')[-1]), 'L', layer_index, ', M',
+                mem_scheme_index + 1, '/', mem_scheme_count, ', SU', ii_su + 1,
+                '/', len(mem_scheme.spatial_unrolling), ' CM  started ', end="")
+
+            # 'layer' is the original 7D layer, now it's got to be overwritten.
+            # 'im2col_layer' is the original 3D/7D layer, depending on im2col_enable
+            # 'layer_rounded' is the rounded 3D/7D layer, depending on im2col_enable
+            layer = [im2col_layer, layer_rounded]
+
+            ################################# SPLITTING INTO CHUNKS ##################################
+            tl_count = tl_combinations
+            first_loop_type = loop_type_order[0]
+            tl_count_first = nonmerged_count_dict[first_loop_type]
+            n_processes = min(tl_count_first, cpu_count(), input_settings.temporal_mapping_multiprocessing)
+            print("| Launching {0} threads, each consisting of {1:,} orderings".format(n_processes,
+                                                                                    int(tl_combinations / n_processes)))
+            tl_list_split = [{} for _ in range(n_processes)]
+            for loop_type in tl_list.keys():
+                if loop_type == first_loop_type:
+                    # Split the orderings for first loop type into n_processes chunks of (roughly) equal size
+                    k, m = divmod(tl_count_first, n_processes)
+                    for i in range(n_processes):
+                        tl_list_split[i][loop_type] = tl_list[loop_type][i * k + min(i, m):(i + 1) * k + min(i + 1, m)]
+                else:
+                    for i in range(n_processes):
+                        tl_list_split[i][loop_type] = tl_list[loop_type]
+
+            precision = input_settings.precision
+            layer_comb = [layer_, layer_rounded]
+            active_mac_cost = cmf.get_active_mac_cost(layer_, input_settings.mac_array_info['single_mac_energy'])
+            idle_mac_cost = cmf.get_idle_mac_cost(layer_, layer_rounded, input_settings.mac_array_info['array_size'],
+                                                input_settings.mac_array_info['idle_mac_energy'],
+                                                mem_scheme.spatial_unrolling)[ii_su]
+            mac_costs = [active_mac_cost, idle_mac_cost]
+            fixed_args = [nonmerged_count_dict, loop_type_order, tl_combinations, input_settings, spatial_loop_comb, mem_scheme, precision, layer_comb, mac_costs, ii_su]
+
+            ################################# CALL PARALLEL PROCESSES ##################################
+            pool = Pool(processes=n_processes)
+            results = pool.starmap(loma.tl_worker_new, [[tl_chunk] + fixed_args for tl_chunk in tl_list_split])
+
+            end_time = time.time()
+            #################################     POST PROCESSING     ##################################
+            best_output_energy = None
+            best_output_utilization = None
+            best_output_pareto = None
+            best_energy = float('inf')
+            best_energy_utilization = 0
+            best_energy_latency = float('inf')
+            best_utilization = 0
+            best_latency = float('inf')
+            best_utilization_energy = float('inf')
+            best_pareto_score = float('inf')
+            best_pareto_energy = float('inf')
+            best_pareto_utilization = 0
+
+            # Create pickle file to append to if pickle_enable
+            if pickle_enable:
+                parent_folder = "%s/all_tm_results/" % (input_settings.results_path)
+                rf = "%s/%s_L_%d_SU_%d" % (parent_folder, input_settings.results_filename, layer_index, ii_su + 1)
+                rf_en = rf + '_energy.pickle'
+                rf_ut = rf + '_utilization.pickle'
+                rf_lat = rf + '_latency.pickle'
+                rf_en_ut = rf + '_combined.pickle'
+                # Create parent folder if it does not exist
+                Path(parent_folder).mkdir(parents=True, exist_ok=True)
+
+            # Loop through the best energy/ut found by the parallel processes to find the overall best one
+            for (min_en, min_en_ut, min_en_lat, min_en_output, max_ut_en, max_ut, min_lat, max_ut_output, 
+                en_collect, ut_collect, lat_collect, min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_output) in results:
+                if (min_en < best_energy or (min_en == best_energy and min_en_ut > best_energy_utilization)):
+                    best_energy = min_en
+                    best_energy_utilization = min_en_ut
+                    best_energy_latency = min_en_lat
+                    best_output_energy = min_en_output
+                if (max_ut > best_utilization or (max_ut == best_utilization and max_ut_en < best_utilization_energy)):
+                    best_utilization_energy = max_ut_en
+                    best_utilization = max_ut
+                    best_latency = min_lat
+                    best_output_utilization = max_ut_output
+                if (min_pareto_score < best_pareto_score) or (min_pareto_score == best_pareto_score and (min_pareto_en < best_pareto_energy or min_pareto_ut > best_pareto_utilization)):
+                    best_pareto_score = min_pareto_score
+                    best_pareto_energy = min_pareto_en
+                    best_pareto_utilization = min_pareto_ut
+                    best_pareto_output = min_pareto_output
+
+                # Save the collected (energy,ut) from every temporal mapping if required
+                if pickle_enable:
+                    # Save energy
+                    with open(rf_en, 'ab') as f:
+                        pickle.dump(en_collect, f)
+                        f.close()
+                    # Save utilization
+                    # with open(rf_ut, 'ab') as f:
+                    #     pickle.dump(ut_collect, f)
+                    #     f.close()
+                    # Save latency
+                    with open(rf_lat, 'ab') as f:
+                        pickle.dump(lat_collect, f)
+                        f.close()
+                    # Save combined (en,ut) tuples
+                    # combined = zip(en_collect, ut_collect)
+                    # with open(rf_en_ut, 'ab') as f:
+                    #     for elem in combined:
+                    #         pickle.dump(elem, f)
+                    #     f.close()
+
+            best_tmo_ut = []
+            best_tmo_en = []
+            mem_idx = mem_scheme_index
+            exec_time = end_time - start_time
+            parent_folder = "%s" % (input_settings.results_path)
+            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
+
+            print(best_output_energy)
+
+            # Extract best tmo for energy and utilization
+            for mem_level in best_output_energy['W']:
+                for loop in mem_level:
+                    best_tmo_en.append(list(loop))
+            for mem_level in best_output_utilization['W']:
+                for loop in mem_level:
+                    best_tmo_ut.append(list(loop))
+
+            # Create the folder for the current NN results if it doesn't exist
+            if not os.path.exists(parent_folder):
+                os.makedirs(parent_folder)
+            if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+                os.makedirs(parent_folder + "/" + input_settings.results_filename)
+            if not os.path.exists(file_name):
+                open(file_name, 'a').close()
+
+            with open(file_name, "r") as f:
+                data_doc = yaml.safe_load(f)
+
+            if data_doc == None:
+                data_doc = dict()
+            if layer_index not in data_doc.keys():
+                data_doc[layer_index] = dict()
+            if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
+                data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
+                
+            data_doc[layer_index]['meta-loma']['en'] = best_energy.item()
+            data_doc[layer_index]['meta-loma']['en_tmo'] = best_tmo_en
+            data_doc[layer_index]['meta-loma']['ut'] = best_utilization
+            data_doc[layer_index]['meta-loma']['ut_tmo'] = best_tmo_ut
+            data_doc[layer_index]['meta-loma']['lat'] = best_latency
+            data_doc[layer_index]['meta-loma']['exec_time'] = exec_time
+            
+            with open(file_name, "w") as f:
+                yaml.dump(data_doc, f)
+
+            # Convert output, which is just best allocated order at this point, to a CostModelOutput object
+            best_output_energy = loma.get_cost_model_output(best_output_energy, input_settings, mem_scheme, layer_comb,
+                                                            spatial_loop_comb, ii_su)
+            best_output_utilization = loma.get_cost_model_output(best_output_utilization, input_settings, mem_scheme,
+                                                                layer_comb, spatial_loop_comb, ii_su)
+
+        else:
+
+            best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+                                                                                            spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+
+            exec_time = time.time() - start_time
+
+            # Convert tmo to list of list instead of list of tuple   
+            for idx, loop in enumerate(best_en_tmo):
+                best_en_tmo[idx] = list(loop)
+            for idx, loop in enumerate(best_ut_tmo):
+                best_ut_tmo[idx] = list(loop)
+
+            mem_idx = mem_scheme_index
+            parent_folder = "%s" % (input_settings.results_path)
+            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
+
+            # Create the folder for the current NN if it doesn't exist
+            if not os.path.exists(parent_folder):
+                os.makedirs(parent_folder)
+            if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+                os.makedirs(parent_folder + "/" + input_settings.results_filename)
+            if not os.path.exists(file_name):
+                open(file_name, 'a').close()
+
+            with open(file_name, "r") as f:
+                data_doc = yaml.safe_load(f)
+
+            if data_doc == None:
+                data_doc = dict()
+            if layer_index not in data_doc.keys():
+                data_doc[layer_index] = dict()
+            if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
+                data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
+            
+            data_doc[layer_index]['meta-loma']['en'] = best_en
+            data_doc[layer_index]['meta-loma']['en_tmo'] = best_en_tmo
+            data_doc[layer_index]['meta-loma']['ut'] = best_ut
+            data_doc[layer_index]['meta-loma']['lat'] = best_lat
+            data_doc[layer_index]['meta-loma']['ut_tmo'] = best_ut_tmo
+            data_doc[layer_index]['meta-loma']['exec_time'] = exec_time
+
+            with open(file_name, "w") as f:
+                yaml.dump(data_doc, f)
+
+        return
+
     if loma_search_engine and not input_settings.fixed_temporal_mapping:
 
         start_time = time.time()
 
         lpf_limit = input_settings.max_nb_lpf_layer
         adaptative_lpf_limit = False
+
+        tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling, lpf_limit)
 
         if adaptative_lpf_limit:
             mem_idx = mem_scheme_index
@@ -601,7 +841,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         if layer_index not in data_doc.keys():
             data_doc[layer_index] = dict()
         if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
-            data_doc[layer_index] = {'mcmc': {}, 'loma': {}}
+            data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
             
         data_doc[layer_index]['loma']['en'] = best_energy.item()
         data_doc[layer_index]['loma']['en_tmo'] = best_tmo_en
@@ -651,7 +891,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         if layer_index not in data_doc.keys():
             data_doc[layer_index] = dict()
         if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
-            data_doc[layer_index] = {'mcmc': {}, 'loma': {}}
+            data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
         
         data_doc[layer_index]['mcmc']['en'] = best_en
         data_doc[layer_index]['mcmc']['en_tmo'] = best_en_tmo
