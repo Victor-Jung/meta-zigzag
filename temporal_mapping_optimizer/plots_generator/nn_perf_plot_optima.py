@@ -82,38 +82,40 @@ arch_range_loma = [x + 0.25 for x in arch_range]
 ### Plotting ###
 fig, axs = plt.subplots(2, 3)
 
-axs[0, 0].set_title(nn_name + " Energy")
-axs[0, 1].set_title(nn_name + " Latency")
-axs[0, 2].set_title(nn_name + " Time")
+fig.suptitle(nn_name + " : Meta Loma vs Loma Lpf 7 With Hint C/K")
 
-axs[0, 0].bar([0], statistics.mean(meta_loma_en_list), label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
-axs[0, 0].bar([2], statistics.mean(loma_en_list), label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 0].set_title("Energy")
+axs[0, 1].set_title("Latency")
+axs[0, 2].set_title("Time")
+
+axs[0, 0].bar(["Meta Loma"], statistics.mean(meta_loma_en_list), label='Meta Loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 0].bar(["Loma"], statistics.mean(loma_en_list), label='Loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
 axs[0, 0].set_ylabel("Energy")
 
-axs[0, 1].bar([0], statistics.mean(meta_loma_lat_list), label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
-axs[0, 1].bar([2], statistics.mean(loma_lat_list), label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 1].bar(["Meta Loma"], statistics.mean(meta_loma_lat_list), color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 1].bar(["Loma"], statistics.mean(loma_lat_list), color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
 axs[0, 1].set_ylabel("Latency (cycles)")
 
-axs[0, 2].bar([0], statistics.mean(meta_loma_time_list), label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
-axs[0, 2].bar([2], statistics.mean(loma_time_list), label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 2].bar(["Meta Loma"], statistics.mean(meta_loma_time_list), color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[0, 2].bar(["Loma"], statistics.mean(loma_time_list), color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
 axs[0, 2].set_ylabel("Time (s)")
 
-axs[1, 0].bar(arch_range_loma, loma_en_list, label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
-axs[1, 0].bar(arch_range_meta_loma, meta_loma_en_list, label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 0].bar(arch_range_loma, loma_en_list, color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 0].bar(arch_range_meta_loma, meta_loma_en_list, color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
 axs[1, 0].set_xlabel("Layer")
 axs[1, 0].set_ylabel("Energy")
 
-axs[1, 1].bar(arch_range_loma, loma_lat_list, label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
-axs[1, 1].bar(arch_range_meta_loma, meta_loma_lat_list, label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 1].bar(arch_range_loma, loma_lat_list, color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 1].bar(arch_range_meta_loma, meta_loma_lat_list, color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
 axs[1, 1].set_xlabel("Layer")
 axs[1, 1].set_ylabel("Latency")
 
-axs[1, 2].bar(arch_range_loma, loma_time_list, label='loma', color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
-axs[1, 2].bar(arch_range_meta_loma, meta_loma_time_list, label='meta_loma', color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 2].bar(arch_range_loma, loma_time_list, color='tab:blue', width = 0.5, alpha=0.66, linewidth=2)
+axs[1, 2].bar(arch_range_meta_loma, meta_loma_time_list, color='tab:green', width = 0.5, alpha=0.66, linewidth=2)
 axs[1, 2].set_xlabel("Layer")
-axs[1, 2].set_ylabel("Latency")
+axs[1, 2].set_ylabel("Time (s)")
 
 fig.legend(loc='upper right')
-fig.set_size_inches(14, 7)
+fig.set_size_inches(17, 7)
 
 plt.savefig(result_path + nn_name + "_Layers.png")

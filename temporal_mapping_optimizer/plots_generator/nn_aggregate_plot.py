@@ -126,52 +126,54 @@ for i in range(0, 360, 10):
     meta_loma_arch_perf_list.append(meta_loma_net_perf_list)
 
 arch_range = [*range(1, 37, 1)]
-arch_range_meta_loma = [x - 0.5 + (0.33/2) for x in arch_range]
-arch_range_mcmc = [x - 0.5 + (0.33 + 0.33/2) for x in arch_range]
-arch_range_loma = [x - 0.5 + (0.66 + 0.33/2) for x in arch_range]
+arch_range_meta_loma = [x - (2/6) for x in arch_range]
+arch_range_mcmc = [x for x in arch_range]
+arch_range_loma = [x + (2/6) for x in arch_range]
 
 ### Plotting ###
 fig, axs = plt.subplots(2, 3)
 
-axs[0, 0].set_title(nn_name + " Energy")
-axs[0, 1].set_title(nn_name + " Latency")
-axs[0, 2].set_title(nn_name + " Time")
+fig.suptitle("NASNet Over 36 HW Architectures With Greedy Mapping OX/K")
 
-axs[0, 0].bar([0], statistics.mean(meta_loma_arch_en_avg_list), label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 0].bar([1], statistics.mean(mcmc_arch_en_avg_list), label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 0].bar([2], statistics.mean(loma_arch_en_avg_list), label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 0].set_title("Energy")
+axs[0, 1].set_title("Latency")
+axs[0, 2].set_title("Time")
+
+axs[0, 0].bar(["Meta Loma"], statistics.mean(meta_loma_arch_en_avg_list), label='Meta Loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 0].bar(["SA"], statistics.mean(mcmc_arch_en_avg_list), label='SA', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 0].bar(["Loma"], statistics.mean(loma_arch_en_avg_list), label='Exhaustive Loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
 axs[0, 0].set_ylabel("Energy")
 
-axs[0, 1].bar([0], statistics.mean(meta_loma_arch_lat_avg_list), label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 1].bar([1], statistics.mean(mcmc_arch_lat_avg_list), label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 1].bar([2], statistics.mean(loma_arch_lat_avg_list), label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 1].bar(["Meta Loma"], statistics.mean(meta_loma_arch_lat_avg_list), color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 1].bar(["SA"], statistics.mean(mcmc_arch_lat_avg_list), color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 1].bar(["Loma"], statistics.mean(loma_arch_lat_avg_list), color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
 axs[0, 1].set_ylabel("Latency (cycles)")
 
-axs[0, 2].bar([0], statistics.mean(meta_loma_arch_time_avg_list), label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 2].bar([1], statistics.mean(mcmc_arch_time_avg_list), label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[0, 2].bar([2], statistics.mean(loma_arch_time_avg_list), label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 2].bar(["Meta Loma"], statistics.mean(meta_loma_arch_time_avg_list), color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 2].bar(["SA"], statistics.mean(mcmc_arch_time_avg_list), color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
+axs[0, 2].bar(["Loma"], statistics.mean(loma_arch_time_avg_list), color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
 axs[0, 2].set_ylabel("Time (s)")
 
-axs[1, 0].bar(arch_range_mcmc, mcmc_arch_en_avg_list, label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 0].bar(arch_range_loma, loma_arch_en_avg_list, label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 0].bar(arch_range_meta_loma, meta_loma_arch_en_avg_list, label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[1, 0].bar(arch_range_mcmc, mcmc_arch_en_avg_list, color='tab:orange', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 0].bar(arch_range_loma, loma_arch_en_avg_list, color='tab:blue', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 0].bar(arch_range_meta_loma, meta_loma_arch_en_avg_list, color='tab:green', width = 0.33, alpha=0.66, linewidth=0)
 axs[1, 0].set_xlabel("Arch")
 axs[1, 0].set_ylabel("Energy")
 
-axs[1, 1].bar(arch_range_mcmc, mcmc_arch_lat_avg_list, label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 1].bar(arch_range_loma, loma_arch_lat_avg_list, label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 1].bar(arch_range_meta_loma, meta_loma_arch_lat_avg_list, label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[1, 1].bar(arch_range_mcmc, mcmc_arch_lat_avg_list, color='tab:orange', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 1].bar(arch_range_loma, loma_arch_lat_avg_list, color='tab:blue', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 1].bar(arch_range_meta_loma, meta_loma_arch_lat_avg_list, color='tab:green', width = 0.33, alpha=0.66, linewidth=0)
 axs[1, 1].set_xlabel("Arch")
-axs[1, 1].set_ylabel("Latency")
+axs[1, 1].set_ylabel("Latency (cycles)")
 
-axs[1, 2].bar(arch_range_mcmc, mcmc_arch_time_avg_list, label='mcmc', color='tab:orange', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 2].bar(arch_range_loma, loma_arch_time_avg_list, label='loma', color='tab:blue', width = 0.33, alpha=0.66, linewidth=2)
-axs[1, 0].bar(arch_range_meta_loma, meta_loma_arch_time_avg_list, label='meta_loma', color='tab:green', width = 0.33, alpha=0.66, linewidth=2)
+axs[1, 2].bar(arch_range_mcmc, mcmc_arch_time_avg_list, color='tab:orange', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 2].bar(arch_range_loma, loma_arch_time_avg_list, color='tab:blue', width = 0.33, alpha=0.66, linewidth=0)
+axs[1, 2].bar(arch_range_meta_loma, meta_loma_arch_time_avg_list, color='tab:green', width = 0.33, alpha=0.66, linewidth=0)
 axs[1, 2].set_xlabel("Arch")
-axs[1, 2].set_ylabel("Latency")
+axs[1, 2].set_ylabel("Time (s)")
 
 fig.legend(loc='upper right')
-fig.set_size_inches(14, 7)
+fig.set_size_inches(17, 7)
 
 print(nn_name)
 print("Energy improvement", 1 - statistics.mean(mcmc_arch_en_avg_list) / statistics.mean(loma_arch_en_avg_list))
