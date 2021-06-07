@@ -1,5 +1,5 @@
 import cost_model_funcs as cmf
-from loma_copy import (
+from temporal_mapping_optimizer.loma_refactored import (
     allocate_memory_for_tl_order,
     create_loop_objects,
     perform_greedy_mapping,

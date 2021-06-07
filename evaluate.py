@@ -19,8 +19,8 @@ from itertools import repeat
 from classes.layer_rounding import mem_access_count_correct
 from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
-import loma as loma
-from temporal_mapping_optimizer.optimizer import rl_temporal_mapping_optimizer
+import temporal_mapping_optimizer.loma as loma
+from temporal_mapping_optimizer.optimizer import temporal_mapping_optimizer
 import yaml
 
 
@@ -428,10 +428,6 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         # Estimate the time exhaustive loma would take (in sec)
         exh_loma_time = tl_combinations / (core_count * combination_evaluation_capacity)
 
-        print("tl_combinations : ", tl_combinations)
-        print("Loma estimated time : ", exh_loma_time)
-        print("SA estimated time : ", sa_time)
-
         if exh_loma_time <= sa_time:
 
             t2 = time.time()
@@ -605,9 +601,10 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         else:
 
-            best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+            best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
+            ############## MOVE WRITING IN RESULT FILE INTO TEMPORAL MAPPING OPTIMIZER ##############
             # Convert tmo to list of list instead of list of tuple   
             for idx, loop in enumerate(best_en_tmo):
                 best_en_tmo[idx] = list(loop)
@@ -645,6 +642,8 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
             with open(file_name, "w") as f:
                 yaml.dump(data_doc, f)
+
+            ############################
 
         return
 

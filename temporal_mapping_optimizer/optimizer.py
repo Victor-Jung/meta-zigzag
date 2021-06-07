@@ -5,13 +5,11 @@ import time
 import yaml
 import math
 
-#from reinforcement_learning_algo.core.state import TemporalMappingState
-from temporal_mapping_optimizer.MCMC import *
-from temporal_mapping_optimizer.random_search import *
+from temporal_mapping_optimizer.SA import *
 from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
 
-def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
+def temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, im2col_layer, layer_rounded,
                                   spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
 
     print("--------- Simulated Annealing Monte Carlo Markov Chain (SA-MCMC) Temporal Mapping Optimization ---------")
@@ -75,18 +73,18 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Launch threads
     if opt == "mixed":
         for i in range(0, en_core):
-            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
+            p = Process(target=sa, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'energy', results_queue, 0, False))
             worker_list.append(p)
             p.start()
         for i in range(0, ut_core):
-            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
+            p = Process(target=sa, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, 'latency', results_queue, 0, False))
             worker_list.append(p)
             p.start()
     else:
         for i in range(0, min(number_of_thread, cpu_count())):
-            p = Process(target=mcmc, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
+            p = Process(target=sa, args=(starting_tmo, iter_number, layer, im2col_layer, layer_rounded, 
                         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, opt, results_queue, 0, False))
             worker_list.append(p)
             p.start()

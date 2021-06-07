@@ -94,7 +94,7 @@ def get_prime_factors(layer_spec):
     return layer_spec_pf, layer_spec_pf_count, total_lpf_count
     
 
-def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
+def sa(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, spatial_loop_comb, 
           input_settings, mem_scheme, ii_su, spatial_unrolling, opt, results_queue, verbose=0, plot=False):
 
      start_time = time.time()
