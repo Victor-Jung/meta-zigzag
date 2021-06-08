@@ -10,7 +10,7 @@ import cost_model_funcs as cmf
 import msg
 import output_funcs as of
 from classes.order import Order
-from loma_utils import permutations
+from temporal_mapping_optimizer.loma_utils import permutations
 from classes.layer_rounding import mem_access_count_correct
 
 loop_types_list = ["FX", "FY", "OX", "OY", "C", "K", "B"]
