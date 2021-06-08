@@ -2,6 +2,7 @@ from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
 from temporal_mapping_optimizer.queue import Queue
 
+from bsgutils import utilization_rate_optimizer
 from loma import limit_lpf, get_prime_factors
 import cost_model_funcs as cmf
 import classes as cls
@@ -57,11 +58,11 @@ def form_tmo(layer_architecture, spatial_unrolling):
         
         return layer_spec_temporal
 
-def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
+def get_lpf_tmo(layer_architecture, spatial_unrolling):
 
      lpf_tmo = []
      layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
-     layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal, limit_lpf)
+     layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal)
 
      for loop_type in list(layer_spec_pf.keys()):
           for i in range(len(layer_spec_pf[loop_type])):
@@ -71,38 +72,30 @@ def get_lpf_limited_tmo(layer_architecture, spatial_unrolling, limit_lpf):
 
      return lpf_tmo
 
-def get_min_lpf_size(layer_architecture, spatial_unrolling):
+def get_prime_factors(layer_spec):
 
-     tmo = []
-     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
+    layer_spec_pf = {}
+    layer_spec_pf_count = {}
+    layer_spec_pf_count_sum = {}
 
-     for loop_id, loop_size in list(layer_spec_temporal.items()):
-            if loop_size != 1:
-                tmo.append((loop_id, loop_size))
+    for loop_type, loop_dimension in layer_spec.items():
+        if loop_dimension == 0 or loop_dimension == 1:
+            continue
+        factors = factorint(loop_dimension)
+        pfs = []
+        counts = []
+        for pf, count in factors.items():
+            pfs.append(pf)
+            counts.append(count)
+        layer_spec_pf[loop_type] = tuple(pfs)
+        layer_spec_pf_count[loop_type] =  tuple(counts)
+        layer_spec_pf_count_sum[loop_type] = sum(counts)
+    
+    total_lpf_count = sum(layer_spec_pf_count_sum.values())
 
-     return len(tmo)
+    #layer_spec_pf, layer_spec_pf_count, total_lpf_count = limit_lpf(layer_spec_pf, layer_spec_pf_count, layer_spec_pf_count_sum, lpf_limit)
 
-def get_max_lpf_size(layer_architecture, spatial_unrolling):
-
-     tmo = []
-     layer_spec_temporal = form_tmo(layer_architecture, spatial_unrolling)
-
-     for loop_id, loop_size in list(layer_spec_temporal.items()):
-            if loop_size != 1:
-                tmo.append((loop_id, loop_size))
-
-     # Break it down to LPF (Loop Prime Factor)
-     tmo_pf = []
-     for inner_loop in tmo:
-          if inner_loop[1] == 1:
-               tmo_pf.append(inner_loop)
-          else:
-               factors = factorint(inner_loop[1])
-               for factor in factors.items():
-                    for pow in range(factor[1]):
-                         tmo_pf.append((inner_loop[0], factor[0]))
-     
-     return len(tmo_pf)
+    return layer_spec_pf, layer_spec_pf_count, total_lpf_count
     
 
 def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
@@ -177,8 +170,13 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      best_tmo = start_tmo
      old_tmo = start_tmo
 
-     su_max_size = 8
+     su_max_size = 256
+     su_action_count = 0
+
+     # Init the Su Queue with the starting SU
      old_su = Queue(su_max_size)
+     for loop in input_settings.spatial_unrolling_single['W'][1]:
+          old_su.enqueue(loop)
 
      new_input_settings = deepcopy(input_settings)
      new_spatial_loop_comb = deepcopy(spatial_loop_comb)
@@ -199,6 +197,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           j = np.random.randint(0, len(old_tmo) + 1)
 
           if j == su_idx:
+               
+               su_action_count += 1
+
                # Put the loop at pos i into the su queue and put queue output into the tmo
                if old_tmo[i][1] > su_max_size:
                     continue
@@ -209,15 +210,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                for loop in q_output:
                     new_tmo.insert(i, loop)
 
-               # New Input Settings generation
-               new_input_settings = deepcopy(input_settings) # save it in case we don't use this new su
-               new_input_settings.spatial_unrolling_single['W'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-               new_input_settings.spatial_unrolling_single['I'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-               new_input_settings.spatial_unrolling_single['O'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-
-               # New Memory Scheme generation
-               new_mem_scheme = deepcopy(mem_scheme)
-               # Generate flooring based on SU
+               # Flooring Generation
                sm_fixed = {'W': [], 'I': [], 'O': []}
                flooring_fixed = {'W': [], 'I': [], 'O': []}
                i2a = {'B': 7, 'K': 6, 'C': 5, 'OY': 4, 'OX': 3, 'FY': 2, 'FX': 1}
@@ -249,19 +242,32 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                                    sm_fixed[operand][ii_lev].append(tuple([i2a[pf[0]], pf[1]]))
                                    flooring_fixed[operand][ii_lev][ii_dim].append(i2a[pf[0]])
                # Then create mem unroll
-               mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
-                    new_input_settings.spatial_unrolling_single, flooring_fixed, new_input_settings.mac_array_info['array_size'])
-               # Finally create the new mem scheme
-               new_mem_scheme.spatial_unrolling = new_input_settings.spatial_unrolling_single
-               new_mem_scheme.mem_unroll_complete = {'mem_unroll_active': mem_unroll_active, 'mem_unroll_total': mem_unroll_total}
+               # mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
+               #     new_input_settings.spatial_unrolling_single, flooring_fixed, new_input_settings.mac_array_info['array_size'])
+               # new_mem_scheme.spatial_unrolling = new_input_settings.spatial_unrolling_single
+               # new_mem_scheme.mem_unroll_complete = {'mem_unroll_active': mem_unroll_active, 'mem_unroll_total': mem_unroll_total}
 
-               new_input_settings.mem_scheme_single = new_mem_scheme
+               # Init of New Obj
+               new_mem_scheme = deepcopy(mem_scheme)
+               new_input_settings = deepcopy(input_settings)
 
-               # New Spatial Loop Combinaison generation
-               new_spatial_loop_comb = deepcopy(spatial_loop_comb)
-               [spatial_loop, spatial_loop_fractional] = new_spatial_loop_comb
-               spatial_loop = cls.SpatialLoop.extract_loop_info(new_input_settings.spatial_unrolling_single, layer_post)
-               new_spatial_loop_comb = [spatial_loop, spatial_loop_fractional]
+               new_input_settings.spatial_unrolling_single['W'][1] = [[loop[0], loop[1]] for loop in new_su.items]
+               new_input_settings.spatial_unrolling_single['I'][1] = [[loop[0], loop[1]] for loop in new_su.items]
+               new_input_settings.spatial_unrolling_single['O'][1] = [[loop[0], loop[1]] for loop in new_su.items]
+
+               new_mem_scheme.spatial_unrolling = [new_input_settings.spatial_unrolling_single]
+               new_mem_scheme.flooring = [new_input_settings.flooring_single]
+               new_spatial_unrolling = [new_input_settings.spatial_unrolling_single]
+
+               new_spatial_loop = cls.SpatialLoop.extract_loop_info(new_mem_scheme.spatial_unrolling[ii_su], layer_post)
+               new_spatial_loop_comb = [new_spatial_loop, new_spatial_loop]
+
+               new_mem_scheme.mem_utilization_rate, good_scheme = utilization_rate_optimizer(new_mem_scheme.mem_size,
+                                                                                               new_mem_scheme.spatial_unrolling[ii_su],
+                                                                                               layer_post,
+                                                                                               new_input_settings.precision,
+                                                                                               new_mem_scheme.mem_utilization_rate,
+                                                                                               new_spatial_loop.unit_unique)
 
           else:
                # Apply the selected swap
@@ -320,7 +326,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      end_time = time.time()
      exec_time = end_time - start_time
 
-     #print("On ", iter, "iterations :", explotation_counter, "explotation and", 2000 - explotation_counter, "exploration")
+     print("Number of Su Action :", su_action_count)
      print("Best value :", best_value)
      print("Best_su :", best_su.items)
      print("Best input settings su :", best_input_settings.spatial_unrolling_single)

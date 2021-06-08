@@ -217,6 +217,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
     previous_best_ut = [None, None]
     loma_search_engine = input_settings.tmg_search_method == 2
     RL_search_engine = input_settings.tmg_search_method == 3
+    
     while (redo_flag and iterate_time < mem_ut_iter_max and not (loma_search_engine or RL_search_engine)):
         # print('generated mem ut', mem_scheme.mem_utilization_rate)
         if not input_settings.utilization_optimizer_pruning:
