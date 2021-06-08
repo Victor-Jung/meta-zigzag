@@ -181,6 +181,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      new_input_settings = deepcopy(input_settings)
      new_spatial_loop_comb = deepcopy(spatial_loop_comb)
      new_mem_scheme = deepcopy(mem_scheme)
+     new_mac_costs = mac_costs
      
      best_su = old_su
      best_input_settings = input_settings
@@ -255,12 +256,16 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_input_settings.spatial_unrolling_single['I'][1] = [[loop[0], loop[1]] for loop in new_su.items]
                new_input_settings.spatial_unrolling_single['O'][1] = [[loop[0], loop[1]] for loop in new_su.items]
 
+               new_mem_scheme = cmf.su_correction(new_mem_scheme)
+
                new_mem_scheme.spatial_unrolling = [new_input_settings.spatial_unrolling_single]
                new_mem_scheme.flooring = [new_input_settings.flooring_single]
                new_spatial_unrolling = [new_input_settings.spatial_unrolling_single]
 
                new_spatial_loop = cls.SpatialLoop.extract_loop_info(new_mem_scheme.spatial_unrolling[ii_su], layer_post)
                new_spatial_loop_comb = [new_spatial_loop, new_spatial_loop]
+
+               new_mac_costs = calculate_mac_level_costs(layer, layer_rounded, new_input_settings, new_mem_scheme, ii_su)
 
                new_mem_scheme.mem_utilization_rate, good_scheme = utilization_rate_optimizer(new_mem_scheme.mem_size,
                                                                                                new_mem_scheme.spatial_unrolling[ii_su],
@@ -273,11 +278,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                # Apply the selected swap
                new_su = old_su
                new_input_settings = input_settings
+               new_mac_costs = mac_costs
                new_tmo = tmo_swap(old_tmo, i, j)
 
           # Evaluate the quality of the new tmo + su
-          new_energy, new_utilization = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, new_mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-
+          new_energy, new_utilization = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
+          
           # Compute the acceptance probability p of the new tmo
           if opt == "energy":
                new_value = new_energy.item()
@@ -300,13 +306,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                input_settings = new_input_settings
                spatial_loop_comb = new_spatial_loop_comb
                mem_scheme = new_mem_scheme
+               mac_costs = new_mac_costs
                old_value = new_value
 
-               #print("New SU :", old_su.items)
-
-               # Plot data saving
-               explotation_counter += 1
-               explotation_swap_array[i, j] += 1
                accepted_value_list.append(old_value)
                if p <= 1:
                     accepted_p_list.append(p)
@@ -318,9 +320,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     best_input_settings = input_settings
                     best_spatial_loop_comb = spatial_loop_comb
                     best_mem_scheme = mem_scheme
+                    best_mac_costs = mac_costs
                     best_value = old_value
-          else:
-               exploration_swap_array[i, j] += 1
           
      # Save the exec time for plots
      end_time = time.time()
@@ -330,6 +331,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      print("Best value :", best_value)
      print("Best_su :", best_su.items)
      print("Best input settings su :", best_input_settings.spatial_unrolling_single)
+     print("Best mac costs :", best_mac_costs)
 
      # Visualization option
      if plot:

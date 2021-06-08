@@ -20,21 +20,29 @@ spatial_mapping_fixed:
   weight:
     MAC: []
     0:
-      Col: [[C,4],[FX,3]]
-      Row: [[K,6],[FY,3]]
+      Col: [[C,8]]
+      Row: [[K,8],[FY,3]]
+      #Col: [[C,16]]
+      #Row: [[K,16]]
+      #Col: [[C,4],[FX,3]]
+      #Row: [[K,6],[FY,3]]
     1: []
   input:
     MAC: []
     0:
-      Col: [[C,4],[FX,3]]
-      Row: [[K,6],[FY,3]]
+      Col: [[C,8]]
+      Row: [[K,8],[FY,3]]
+      #Col: [[C,4],[FX,3]]
+      #Row: [[K,6],[FY,3]]
     1: []
     2: []
   output:
     MAC: []
     0:
-      Col: [[C,4],[FX,3]]
-      Row: [[K,6],[FY,3]]
+      Col: [[C,8]]
+      Row: [[K,8],[FY,3]]
+      #Col: [[C,4],[FX,3]]
+      #Row: [[K,6],[FY,3]]
     1: []
     2: []
 

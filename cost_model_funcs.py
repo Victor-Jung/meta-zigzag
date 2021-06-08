@@ -45,6 +45,7 @@ def get_idle_mac_cost(layer, layer_rounded, array_size, idle_mac_energy, spatial
         ideal_mac_count = total_mapping_count * array_size[0] * array_size[1]
         idle_mac_count = ideal_mac_count - layer.total_MAC_op
         idle_mac_cost.append(idle_mac_count * idle_mac_energy)
+
     return idle_mac_cost
 
 

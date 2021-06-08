@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 from sympy.ntheory import factorint
 
+from classes.layer_rounding import mem_access_count_correct
 import classes as cls
 import cost_model_funcs as cmf
 import msg
@@ -589,7 +590,7 @@ def perform_greedy_mapping(layer_origin, allocated_order, spatial_loop_fractiona
     """
     if input_settings.spatial_unrolling_mode in [4, 5]:
         ############# Advanced User Configuration #############
-        # mem_energy_saving_when_BW_under_utilized = True
+        mem_energy_saving_when_BW_under_utilized = False
         #######################################################
         temporal_loop_fractional = cls.TemporalLoop.extract_loop_info(
             layer_origin, allocated_order, spatial_loop_fractional
@@ -601,8 +602,8 @@ def perform_greedy_mapping(layer_origin, allocated_order, spatial_loop_fractiona
             input_settings.precision,
             input_settings.fixed_temporal_mapping,
         )
-        # if mem_energy_saving_when_BW_under_utilized is False:
-        #     loop_fractional = mem_access_count_correct(loop_fractional, loop)
+        if mem_energy_saving_when_BW_under_utilized is False:
+            loop_fractional = mem_access_count_correct(loop_fractional, loop)
 
     else:
         loop_fractional = loop

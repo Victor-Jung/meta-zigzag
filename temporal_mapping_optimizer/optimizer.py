@@ -15,7 +15,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
     print("--------- Simulated Annealing (SA) Temporal Mapping Optimization ---------")
 
-    opt = "utilization"
+    opt = "energy"
 
     if opt == "energy":
         optimize("energy", temporal_mapping_ordering, layer_post, layer, im2col_layer, 

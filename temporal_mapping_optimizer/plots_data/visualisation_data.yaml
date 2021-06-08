@@ -55,9 +55,9 @@ loma_ut_list:
 lpf_range:
 - 12
 mcmc_en_list:
-- 2458168832.0
+- 5482739788.8
 mcmc_exec_time_list:
-- 4.863139629364014
+- 4.311039209365845
 mcmc_pareto_en_list:
 - 8570383756.0
 - 8570383756.0
