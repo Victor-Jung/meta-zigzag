@@ -139,8 +139,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      start_time = time.time()
 
      ### Hyperparameters ###
-     temperature = 0.05*10
-     rho = 0.999 # Temperature Decay
+     max_temperature = 0.05
+     min_temperature = max_temperature*(0.999**2000)
+     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
 
      # Plot lists
      accepted_p_list = []
@@ -188,7 +189,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      best_spatial_loop_comb = spatial_loop_comb
      best_mem_scheme = mem_scheme
 
-     for k in range(iter):
+     for temperature in temperature_linspace:
           
           # Note : the tmo size is dynamic here depending on how many loops are in the su queue
           su_idx = len(old_tmo)
@@ -211,18 +212,31 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                for loop in q_output:
                     new_tmo.insert(i, loop)
 
+               # Split our Su in two list where the product of pf is <= 16 (Row and Col)
+               row_list = []
+               col_list = []
+               row_pf_product = 1
+               col_pf_product = 1
+               for loop in new_su.items:
+                    if (row_pf_product * loop[1]) <= 16:
+                         row_pf_product *= loop[1]
+                         row_list.append([ids_to_loop_type[loop[0]], loop[1]])
+                    else:
+                         col_pf_product *= loop[1]
+                         col_list.append([ids_to_loop_type[loop[0]], loop[1]])
+
                # Flooring Generation
                sm_fixed = {'W': [], 'I': [], 'O': []}
                flooring_fixed = {'W': [], 'I': [], 'O': []}
                i2a = {'B': 7, 'K': 6, 'C': 5, 'OY': 4, 'OX': 3, 'FY': 2, 'FX': 1}
                with open("./inputs/mapping.yaml") as f:
                     fl = yaml.full_load(f)
-               fl['spatial_mapping_fixed']['weight'][0]['Col'] = [[ids_to_loop_type[loop[0]], loop[1]] for loop in new_su.items]
-               fl['spatial_mapping_fixed']['weight'][0]['Row'] = []
-               fl['spatial_mapping_fixed']['input'][0]['Col'] = [[ids_to_loop_type[loop[0]], loop[1]] for loop in new_su.items]
-               fl['spatial_mapping_fixed']['input'][0]['Row'] = []
-               fl['spatial_mapping_fixed']['output'][0]['Col'] = [[ids_to_loop_type[loop[0]], loop[1]] for loop in new_su.items]
-               fl['spatial_mapping_fixed']['output'][0]['Row'] = []
+               fl['spatial_mapping_fixed']['weight'][0]['Col'] = col_list
+               fl['spatial_mapping_fixed']['weight'][0]['Row'] = row_list
+               fl['spatial_mapping_fixed']['input'][0]['Col'] = col_list
+               fl['spatial_mapping_fixed']['input'][0]['Row'] = row_list
+               fl['spatial_mapping_fixed']['output'][0]['Col'] = col_list
+               fl['spatial_mapping_fixed']['output'][0]['Row'] = row_list
 
                for op in fl['spatial_mapping_fixed']:
                     if op == 'weight': operand = 'W'
@@ -242,11 +256,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                               for pf in fl['spatial_mapping_fixed'][op][lev][dim]:
                                    sm_fixed[operand][ii_lev].append(tuple([i2a[pf[0]], pf[1]]))
                                    flooring_fixed[operand][ii_lev][ii_dim].append(i2a[pf[0]])
-               # Then create mem unroll
-               # mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
-               #     new_input_settings.spatial_unrolling_single, flooring_fixed, new_input_settings.mac_array_info['array_size'])
-               # new_mem_scheme.spatial_unrolling = new_input_settings.spatial_unrolling_single
-               # new_mem_scheme.mem_unroll_complete = {'mem_unroll_active': mem_unroll_active, 'mem_unroll_total': mem_unroll_total}
+               
+               mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
+                         sm_fixed, flooring_fixed, input_settings.mac_array_info['array_size'])
 
                # Init of New Obj
                new_mem_scheme = deepcopy(mem_scheme)
@@ -255,11 +267,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_input_settings.spatial_unrolling_single['W'][1] = [[loop[0], loop[1]] for loop in new_su.items]
                new_input_settings.spatial_unrolling_single['I'][1] = [[loop[0], loop[1]] for loop in new_su.items]
                new_input_settings.spatial_unrolling_single['O'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-
-               new_mem_scheme = cmf.su_correction(new_mem_scheme)
+               new_input_settings.flooring_single = flooring_fixed
 
                new_mem_scheme.spatial_unrolling = [new_input_settings.spatial_unrolling_single]
                new_mem_scheme.flooring = [new_input_settings.flooring_single]
+               new_mem_scheme.mem_unroll_complete = {'mem_unroll_active': mem_unroll_active, 'mem_unroll_total': mem_unroll_total}
+
                new_spatial_unrolling = [new_input_settings.spatial_unrolling_single]
 
                new_spatial_loop = cls.SpatialLoop.extract_loop_info(new_mem_scheme.spatial_unrolling[ii_su], layer_post)
@@ -273,17 +286,20 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                                                                                                new_input_settings.precision,
                                                                                                new_mem_scheme.mem_utilization_rate,
                                                                                                new_spatial_loop.unit_unique)
+               
 
-          else:
+          else: 
                # Apply the selected swap
                new_su = old_su
                new_input_settings = input_settings
                new_mac_costs = mac_costs
+               new_spatial_loop_comb = spatial_loop_comb
+               new_mem_scheme = mem_scheme
                new_tmo = tmo_swap(old_tmo, i, j)
 
           # Evaluate the quality of the new tmo + su
           new_energy, new_utilization = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
-          
+
           # Compute the acceptance probability p of the new tmo
           if opt == "energy":
                new_value = new_energy.item()
@@ -297,11 +313,10 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
           # Sample x to make the choice and update temperature
           x = np.random.rand() # x belongs to [0, 1]
-          temperature = temperature * rho
 
           if(x < p):    
                # Move on the next point    
-               old_tmo = new_tmo.copy()
+               old_tmo = deepcopy(new_tmo)
                old_su = deepcopy(new_su)
                input_settings = new_input_settings
                spatial_loop_comb = new_spatial_loop_comb

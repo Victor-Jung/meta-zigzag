@@ -15,7 +15,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
 
     print("--------- Simulated Annealing (SA) Temporal Mapping Optimization ---------")
 
-    opt = "energy"
+    opt = "utilization"
 
     if opt == "energy":
         optimize("energy", temporal_mapping_ordering, layer_post, layer, im2col_layer, 
@@ -38,7 +38,7 @@ def optimize(opt, temporal_mapping_ordering, layer_post, layer, im2col_layer,
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
 
-    iter = 2000
+    iter = 10000
 
     exec_time_list = []
     best_value_list = []

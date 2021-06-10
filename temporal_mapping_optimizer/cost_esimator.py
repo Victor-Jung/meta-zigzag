@@ -7,7 +7,6 @@ from loma_copy import (
     find_total_cost_layer,
 )
 
-
 def calculate_mac_level_costs(layer_, layer_rounded, input_settings, mem_scheme, ii_su):
     active_mac_cost = cmf.get_active_mac_cost(layer_, input_settings.mac_array_info["single_mac_energy"])
     idle_mac_cost = cmf.get_idle_mac_cost(
@@ -83,6 +82,7 @@ def get_temporal_loop_estimation(
     )
     energy = total_cost_layer
     utilization = utilization.mac_utilize_no_load
+
     return (
         energy,
         utilization,
