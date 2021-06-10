@@ -1,6 +1,6 @@
 
 
-class Queue:
+class Spatial_Unrolling_Queue:
     """Spatial Unrolling (SU) Queue
 
     Set up the max size in the contructor, when calling enqueue it will return the

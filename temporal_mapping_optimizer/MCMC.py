@@ -1,6 +1,6 @@
 from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
-from temporal_mapping_optimizer.queue import Queue
+from temporal_mapping_optimizer.queue import Spatial_Unrolling_Queue
 
 from bsgutils import utilization_rate_optimizer
 from loma import limit_lpf, get_prime_factors
@@ -49,16 +49,16 @@ def form_tmo(layer_post, spatial_unrolling):
                     pf = layer_spec_temporal[loop_type]
                except:
                     continue
-                q, rem = divmod(pf, su_factor)
-                assert rem == 0 # pf/su_factor should have remainder 0
-                layer_spec_temporal[loop_type] = q
+               q, rem = divmod(pf, su_factor)
+               assert rem == 0 # pf/su_factor should have remainder 0
+               layer_spec_temporal[loop_type] = q
         
-        # Then filter the 1-size loops
-        for loop_type, loop_size in list(layer_spec_temporal.items()):
-            if loop_size == 1:
-                layer_spec_temporal.pop(loop_type)
+          # Then filter the 1-size loops
+          for loop_type, loop_size in list(layer_spec_temporal.items()):
+               if loop_size == 1:
+                    layer_spec_temporal.pop(loop_type)
         
-        return layer_spec_temporal
+     return layer_spec_temporal
 
 def get_lpf_tmo(layer_architecture, spatial_unrolling):
 
@@ -101,7 +101,7 @@ def get_prime_factors(layer_spec):
     
 
 def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
-         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, layer_post, opt, plot=False):
+         spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, layer_post, results_queue, opt, plot=False):
 
      start_time = time.time()
 
@@ -143,8 +143,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      su_max_size = 256
      su_action_count = 0
 
-     # Init the Su Queue with the starting SU
-     old_su = Queue(su_max_size)
+     # Init the Su Queue with the starting SU if specified by the user
+     old_su = Spatial_Unrolling_Queue(su_max_size)
      for loop in input_settings.spatial_unrolling_single['W'][1]:
           old_su.enqueue(loop)
 
@@ -181,8 +181,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           su_idx = len(old_tmo)
 
           # Uniforme random sampling in the neighborhoods
-          i = np.random.randint(0, len(old_tmo)) 
-          j = np.random.randint(0, len(old_tmo) + 1)
+          i = np.random.randint(0, len(old_tmo))
+
+          if input_settings.spatial_unrolling_mode == 6:
+               j = np.random.randint(0, len(old_tmo) + 1)
+          else:
+               j = np.random.randint(0, len(old_tmo))
 
           if j == su_idx:
                
@@ -284,17 +288,19 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_tmo = tmo_swap(old_tmo, i, j)
 
           # Evaluate the quality of the new tmo + su
-          new_energy, new_utilization = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
+          new_energy, new_utilization, new_latency = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
+                                                                 new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
 
           # Compute the acceptance probability p of the new tmo
           if opt == "energy":
                new_value = new_energy.item()
                p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "latency":
+               new_value = new_latency
                p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "pareto":
                new_value = new_energy.item()/new_utilization
-               p = np.exp(((old_value / new_value) - 1) / temperature)
+               p = np.exp(((old_value / new_value) - 1) / temperature) 
 
           # Sample x to make the choice and update temperature
           x = np.random.rand() # x belongs to [0, 1]
@@ -331,9 +337,6 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      end_time = time.time()
      exec_time = end_time - start_time
-
-     if verbose == 1:
-          print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
      
      if plot:
           plt.figure(1)
@@ -363,8 +366,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.show()'''
 
      if opt == 'latency':
-          results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+          results_queue.put([best_value, best_ut, best_tmo, best_su, exec_time, opt])
      else:
-          results_queue.put([best_value, best_tmo, exec_time, opt])
+          results_queue.put([best_value, None, best_tmo, best_su, exec_time, opt])
           
      return best_value, best_tmo, exec_time

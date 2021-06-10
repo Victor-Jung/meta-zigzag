@@ -623,14 +623,20 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
 
-        best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+        best_en, best_en_tmo, best_en_su, best_lat, best_ut, best_ut_tmo, best_ut_su, exec_time = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
-        # Convert tmo to list of list instead of list of tuple   
+        # Convert tmo  and su to list of list instead of list of tuple 
+        best_en_su = best_en_su.items  
+        best_ut_su = best_ut_su.items  
         for idx, loop in enumerate(best_en_tmo):
             best_en_tmo[idx] = list(loop)
         for idx, loop in enumerate(best_ut_tmo):
             best_ut_tmo[idx] = list(loop)
+        for idx, loop in enumerate(best_en_su):
+            best_en_su[idx] = list(loop)
+        for idx, loop in enumerate(best_ut_su):
+            best_ut_su[idx] = list(loop)
 
         mem_idx = mem_scheme_index
         parent_folder = "%s" % (input_settings.results_path)
@@ -656,9 +662,11 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         
         data_doc[layer_index]['mcmc']['en'] = best_en
         data_doc[layer_index]['mcmc']['en_tmo'] = best_en_tmo
+        data_doc[layer_index]['mcmc']['en_su'] = best_en_su
         data_doc[layer_index]['mcmc']['ut'] = best_ut
         data_doc[layer_index]['mcmc']['lat'] = best_lat
         data_doc[layer_index]['mcmc']['ut_tmo'] = best_ut_tmo
+        data_doc[layer_index]['mcmc']['ut_su'] = best_ut_su
         data_doc[layer_index]['mcmc']['exec_time'] = exec_time
 
         with open(file_name, "w") as f:
@@ -806,11 +814,11 @@ def mem_scheme_evaluate(input_settings, layer_index, layer, im2col_layer, mem_sc
     discard_mem_scheme = False
     if discard_mem_scheme:
         return
-    if input_settings.fixed_spatial_unrolling:
+    if input_settings.fixed_spatial_unrolling or input_settings.spatial_unrolling_mode == 6:
         mem_scheme.spatial_unrolling = [input_settings.spatial_unrolling_single]
         mem_scheme.flooring = [input_settings.flooring_single]
         spatial_unrolling = [input_settings.spatial_unrolling_single]
-    if not input_settings.fixed_spatial_unrolling:
+    if not input_settings.fixed_spatial_unrolling and input_settings.spatial_unrolling_mode != 6:
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         print(current_time, str(input_settings.layer_filename.split('/')[-1]), 'L', layer_index, ', M',

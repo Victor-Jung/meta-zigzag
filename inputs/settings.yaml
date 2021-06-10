@@ -18,7 +18,7 @@ save_all_spatial_unrolling_result: true
 save_all_temporal_mapping_result: false
 save_results_on_the_fly: true
 spatial_unrolling_multiprocessing: 1
-spatial_unrolling_search_method: hint_driven
+spatial_unrolling_search_method: sa
 spatial_utilization_threshold: 0.9
 temporal_mapping_multiprocessing: 8
 temporal_mapping_search_method: RL

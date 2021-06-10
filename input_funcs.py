@@ -272,7 +272,7 @@ def get_input_settings(setting_path, mapping_path, memory_pool_path, architecure
     else:
         raise ValueError('temporal_mapping_search_method is not correctly set. Please check the setting file.')
 
-    sumode = ['exhaustive', 'heuristic_v1', 'heuristic_v2', 'hint_driven', 'greedy_mapping_with_hint', 'greedy_mapping_without_hint']
+    sumode = ['exhaustive', 'heuristic_v1', 'heuristic_v2', 'hint_driven', 'greedy_mapping_with_hint', 'greedy_mapping_without_hint', 'sa']
     if not fl['fixed_spatial_unrolling']:
         sumx = sumode.index(fl['spatial_unrolling_search_method'])
     else:
