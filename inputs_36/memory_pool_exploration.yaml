@@ -1,0 +1,143 @@
+rf_BW16_2_Byte:
+  area: [0.0003]
+  cost:
+    read_word: [0.000061507]
+    write_word: [0.000089656]
+  mem_bw: [16]
+  mem_type: dual_port_double_buffered
+  size_bit: 16
+
+rf_BW16_128_Byte:
+  area: [0.00557756]
+  cost:
+    read_word: [0.000630436]
+    write_word: [0.00112554]
+  mem_bw: [16]
+  mem_type: dual_port_double_buffered
+  size_bit: 1024
+
+rf_BW16_512_Byte:
+  area: [0.01783896]
+  cost:
+    read_word: [0.00133651]
+    write_word: [0.00216325]
+  mem_bw: [16]
+  mem_type: dual_port_double_buffered
+  size_bit: 4096
+
+sram_BW128_1024_Byte:
+  area: [0.0295259]
+  cost:
+    read_word: [0.00685175]
+    write_word: [0.0107614]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 8192
+
+sram_BW128_2048_Byte:
+  area: [0.0437086]
+  cost:
+    read_word: [0.00772272]
+    write_word: [0.0157437]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 16384
+
+sram_BW128_4096_Byte:
+  area: [0.0719045]
+  cost:
+    read_word: [0.00907681]
+    write_word: [0.0253204]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 32768
+
+sram_BW128_8192_Byte:
+  area: [0.140213]
+  cost:
+    read_word: [0.0166672]
+    write_word: [0.0300529]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 65536
+
+sram_BW128_16384_Byte:
+  area: [0.249171]
+  cost:
+    read_word: [0.0226991]
+    write_word: [0.0497309]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 131072
+
+sram_BW128_32768_Byte:
+  area: [0.46614]
+  cost:
+    read_word: [0.0433607]
+    write_word: [0.0590783]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 262144
+
+sram_BW128_65536_Byte:
+  area: [0.901503]
+  cost:
+    read_word: [0.0846194]
+    write_word: [0.0777086]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 524288
+
+sram_BW128_131072_Byte:
+  area: [1.93482]
+  cost:
+    read_word: [0.107727]
+    write_word: [0.100816]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 1048576
+
+sram_BW128_262144_Byte:
+  area: [4.00802]
+  cost:
+    read_word: [0.152632]
+    write_word: [0.145721]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 2097152
+
+sram_BW128_524288_Byte:
+  area: [7.54906]
+  cost:
+    read_word: [0.23677]
+    write_word: [0.184603]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 4194304
+
+sram_BW128_1048576_Byte:
+  area: [15.2534]
+  cost:
+    read_word: [0.327395]
+    write_word: [0.275228]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 8388608
+
+sram_BW128_2097152_Byte:
+  area: [28.8614]
+  cost:
+    read_word: [0.484802]
+    write_word: [0.471593]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 16777216
+
+OFFCHIP:
+  area: [0]
+  cost:
+    read_word: [10.912]
+    write_word: [9.1733]
+  mem_bw: [128]
+  mem_type: dual_port_single_buffered
+  size_bit: 8589934592

@@ -81,9 +81,10 @@ def get_temporal_loop_estimation(
         input_settings,
     )
     energy = total_cost_layer
+    latency = utilization.latency_no_load
     utilization = utilization.mac_utilize_no_load
-
     return (
         energy,
         utilization,
+        latency,
     )

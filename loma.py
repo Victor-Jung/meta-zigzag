@@ -9,7 +9,7 @@ from classes.order import Order
 import operator
 import time
 from classes.layer_rounding import mem_access_count_correct
-
+from pprint import pprint
 
 """
 # multipermute - permutations of a multiset
@@ -406,7 +406,6 @@ def og(layer_spec, spatial_unrolling, lpf_limit):
     """
     # Corresponding number for each loop_type
     lt_convert = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
-
     layer_spec_temporal = {}
 
     # Add all non-trivial loop_types of layer_spec to layer_spec_temporal
@@ -529,10 +528,8 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
     # Spatial unrolling
     [spatial_loop, spatial_loop_fractional] = spatial_loop_comb
 
-
     # Get the active and idle MAC cost
     [active_mac_cost, idle_mac_cost] = mac_costs
-
 
     # loop_type order ['B','K','C','OY','OX','FY','FX']
     # Adjust the merged_count_dict for the first loop_type, as this got chunked in caller function
@@ -553,9 +550,11 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
         cost_model_output = get_cost_model_output(empty_allocated_order, input_settings, mem_scheme, layer, spatial_loop_comb, ii_su)
 
         # Extract return values
-        min_en = max_ut_en = cost_model_output.total_cost
-        min_en_ut = max_ut = cost_model_output.utilization.mac_utilize_no_load
-        min_en_order = max_ut_order = min_pareto_order = empty_allocated_order
+        min_en = max_ut_en = min_pareto_en = cost_model_output.total_cost
+        min_en_ut = max_ut = min_pareto_ut = cost_model_output.utilization.mac_utilize_no_load
+        min_en_lat = min_lat = cost_model_output.utilization.latency_no_load
+        min_en_order = max_ut_order = min_pareto_order = min_pareto_order = empty_allocated_order
+        min_pareto_score = min_en / max_ut
 
         # Init energy,latency,utilization collect
         energy_collect = None
@@ -567,10 +566,10 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
             utilization_collect = [min_en_ut]
             latency_collect = [cost_model_output.utilization.latency_no_load]
 
-
-        return (min_en, min_en_ut, min_en_order, 
-                max_ut_en, max_ut, max_ut_order,
-                energy_collect, utilization_collect, latency_collect)
+        return (min_en, min_en_ut, min_en_lat, min_en_order,
+                max_ut_en, max_ut, min_lat, max_ut_order,
+                energy_collect, utilization_collect, latency_collect, 
+                min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_order)
 
     # Get the orderings for all possible loop_types (some might be non-existent)
     tl_list_B = tl_list.get('B',[None])
@@ -593,8 +592,10 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
     # Init minimal energy and max utilization results
     min_en = float('inf')
     min_en_ut = 0
-    max_ut_en = float('inf')
+    min_en_lat = float('inf')
     max_ut = 0
+    max_ut_en = float('inf')
+    min_lat = float('inf')
     min_pareto_score = float('inf')
     min_pareto_en = float('inf')
     min_pareto_ut = 0
@@ -709,14 +710,17 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                 ############################# COMPARISON WITH BEST SO FAR #############################
                                 en = total_cost_layer
                                 ut = utilization.mac_utilize_no_load
+                                lat = utilization.latency_no_load
                                 pareto_score = en / ut
 
                                 if (en < min_en) or (en == min_en and ut > min_en_ut):
                                     min_en = en
                                     min_en_ut = ut
+                                    min_en_lat = lat
                                     min_en_order = allocated_order
                                 if (ut > max_ut) or (ut == max_ut and en < max_ut_en):
                                     max_ut = ut
+                                    min_lat = lat
                                     max_ut_en = en
                                     max_ut_order = allocated_order
                                 if (pareto_score < min_pareto_score) or (pareto_score == min_pareto_score and (en < min_pareto_en or ut > min_pareto_ut)):
@@ -728,12 +732,17 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                     energy_collect.append(int(en))
                                     utilization_collect.append(ut)
                                     latency_collect.append(utilization.latency_no_load)
+                                
+                                if nonmerged_order == [(2,3),(1,3),(4,2),(4,7),(4,2),(4,2),(3,2),(3,2)]:
+                                    print("En :", en)
+                                    print(allocated_order)
+                                    print(spatial_loop.spatial_loop)
 
                                 # if ctr % 1000 == 0:
                                 #     print(ctr, "Execution time =", time.time()-t_start)
                                 #     t_start = time.time()
 
-    return (min_en, min_en_ut, min_en_order,
-        max_ut_en, max_ut, max_ut_order,
+    return (min_en, min_en_ut, min_en_lat, min_en_order,
+        max_ut_en, max_ut, min_lat, max_ut_order,
         energy_collect, utilization_collect, latency_collect, 
         min_pareto_score, min_pareto_en, min_pareto_ut, min_pareto_order)

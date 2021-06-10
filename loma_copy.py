@@ -12,6 +12,7 @@ import msg
 import output_funcs as of
 from classes.order import Order
 from loma_utils import permutations
+from classes.layer_rounding import mem_access_count_correct
 
 loop_types_list = ["FX", "FY", "OX", "OY", "C", "K", "B"]
 # Corresponding number for each loop_type {"FX": 1, "FY": 2, "OX": 3, "OY": 4, "C": 5, "K": 6, "B": 7}

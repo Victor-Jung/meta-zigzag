@@ -8,9 +8,11 @@ import cost_model_funcs as cmf
 import classes as cls
 import msg
 
+from multiprocessing import Process, Queue
 from sympy import factorint, isprime
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from pprint import pprint
 import numpy as np
 import random
 import time
@@ -29,23 +31,23 @@ def tmo_swap(tmo, i, j):
 def evaluate_tmo(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs):
      return get_temporal_loop_estimation(tmo, input_settings, spatial_loop_comb, mem_scheme, layer, mac_costs)
 
-def form_tmo(layer_architecture, spatial_unrolling):
+def form_tmo(layer_post, spatial_unrolling):
 
-        layer_spec_temporal = {}
-        ids_to_loop_type = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
+     layer_spec_temporal = {}
+     ids_to_loop_type = {1: 'FX', 2: 'FY', 3: 'OX', 4: 'OY', 5: 'C', 6: 'K', 7: 'B'}
 
-        # Extract the naive TM from the layer architecture contained in layer_post
-        tmo = []
-        for loop_type in ['B','K','C','OY','OX','FY','FX']:
-            layer_spec_temporal[loop_type] = layer_architecture[loop_type]   
+     # Extract the naive TM from the layer architecture contained in layer_post
+     for loop_type, loop_factor in layer_post.items():
+        if (loop_factor != 0 or loop_factor != 1) and (loop_type in ['B','K','C','OY','OX','FY','FX']):
+            layer_spec_temporal[loop_type] = loop_factor
 
-        # Update the temporal layer spec to remove the already spatially unrolled dimensions.
-        for level in range(0, len(spatial_unrolling['W'])):
-            for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
-                loop_type = ids_to_loop_type[loop_type_number]
-                try:
+     # Update the temporal layer spec to remove the already spatially unrolled dimensions.
+     for level in range(0, len(spatial_unrolling['W'])):
+          for [loop_type_number, su_factor] in spatial_unrolling['W'][level]:
+               loop_type = ids_to_loop_type[loop_type_number]
+               try:
                     pf = layer_spec_temporal[loop_type]
-                except:
+               except:
                     continue
                 q, rem = divmod(pf, su_factor)
                 assert rem == 0 # pf/su_factor should have remainder 0
@@ -101,41 +103,6 @@ def get_prime_factors(layer_spec):
 def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
          spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling, layer_post, opt, plot=False):
 
-     """
-     print("Testing the queue !")
-
-     q = Queue(max_size=16)
-     c_loop = ('C', 2)
-     k_loop = ('K', 2)
-
-     q.enqueue(c_loop)
-     q.print_items()
-     q.enqueue(k_loop)
-     q.enqueue(c_loop)
-     q.print_items()
-     out = q.enqueue(c_loop)
-     q.print_items()
-     print("out :", out)
-     out = q.enqueue(('OY',13))
-     q.print_items()
-     print("out :", out)
-     """
-
-     # Where can I update the SU ?
-     # print(spatial_unrolling) # we dont use spatial_unrolling obj in cost eval ? 
-     # So just remove loops from tmo should impact performances, or mapping.yaml
-     # give the SU via another obj to cost eval. 
-     # print(input_settings.spatial_unrolling_single) # maybe given with this arg
-     # Have to define mem level to access the su
-     # First try even su
-     # Look like changing input_settings.spatial_unrolling_single doesn't change performances
-     # Probably need to change spatial loop comb and mem scheme, I'll ask Arne on Monday
-
-     # Seems to work for energy but not for utilization
-     # Updating spatial_loop_comb obj and input_settings don't seems to have impact
-     
-     print(mem_scheme.spatial_unrolling)
-
      start_time = time.time()
 
      ### Hyperparameters ###
@@ -146,25 +113,27 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      # Plot lists
      accepted_p_list = []
      accepted_value_list = []
+     value_list = []
      explotation_counter = 0
-     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering) + 1), dtype=float)
-     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering) + 1), dtype=float)
+     exploration_counter = 0
+     rejection_counter = 0
+     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
+     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
 
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
      # Extract the list of tuple from the tmo
      start_tmo = temporal_mapping_ordering
 
-     # Initalization and Evaluation of a random starting point
-     random.shuffle(start_tmo)
-     start_energy, start_utilization = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     start_energy, start_utilization, start_latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
           best_value = start_energy.item()
           old_value = start_energy.item()
-     elif opt == "utilization":
-          best_value = start_utilization
-          old_value = start_utilization
+     elif opt == "latency":
+          best_value = start_latency
+          old_value = start_latency
+          best_ut = start_utilization
      elif opt == "pareto":
           best_value = start_energy/start_utilization
           old_value = start_energy/start_utilization
@@ -188,6 +157,23 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      best_input_settings = input_settings
      best_spatial_loop_comb = spatial_loop_comb
      best_mem_scheme = mem_scheme
+
+     # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
+     if start_tmo == []:
+          
+          energy, utilization, latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          exec_time = time.time() - start_time
+
+          if opt == "energy":
+               best_value = energy.item()
+               results_queue.put([best_value, best_tmo, exec_time, opt])
+          elif opt == "latency":
+               best_value = latency
+               results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+          elif opt == "pareto":
+               best_value = energy.item()/utilization
+          
+          return best_value, start_tmo, exec_time
 
      for temperature in temperature_linspace:
           
@@ -304,9 +290,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           if opt == "energy":
                new_value = new_energy.item()
                p = np.exp(((old_value / new_value) - 1) / temperature)
-          elif opt == "utilization":
-               new_value = new_utilization
-               p = np.exp((new_value - old_value) / temperature)
+          elif opt == "latency":
+               p = np.exp(((old_value / new_value) - 1) / temperature)
           elif opt == "pareto":
                new_value = new_energy.item()/new_utilization
                p = np.exp(((old_value / new_value) - 1) / temperature)
@@ -324,12 +309,13 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                mac_costs = new_mac_costs
                old_value = new_value
 
-               accepted_value_list.append(old_value)
-               if p <= 1:
-                    accepted_p_list.append(p)
+               if p >= 1:
+                    explotation_counter += 1
+               else:
+                    exploration_counter += 1
                
                # We want to maximize utilization, minimize energy and pareto_score
-               if ((opt == "energy" or opt == "pareto") and old_value < best_value) or (opt == "utilization" and old_value > best_value):
+               if old_value < best_value:
                     best_tmo = old_tmo
                     best_su = old_su
                     best_input_settings = input_settings
@@ -337,19 +323,23 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     best_mem_scheme = mem_scheme
                     best_mac_costs = mac_costs
                     best_value = old_value
-          
-     # Save the exec time for plots
+                    best_ut = new_utilization
+          else:
+               rejection_counter += 1
+
+          value_list.append(new_utilization)
+
      end_time = time.time()
      exec_time = end_time - start_time
 
-     print("Number of Su Action :", su_action_count)
-     print("Best value :", best_value)
-     print("Best_su :", best_su.items)
-     print("Best input settings su :", best_input_settings.spatial_unrolling_single)
-     print("Best mac costs :", best_mac_costs)
-
-     # Visualization option
+     if verbose == 1:
+          print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
+     
      if plot:
+          plt.figure(1)
+          plt.hist(value_list)
+          plt.show()
+          '''
           plt.figure(1)
           plt.title('Utilization of accepted state evolution during the run')
           plt.xlabel("Iteration")
@@ -370,6 +360,11 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.xlabel("i")
           plt.ylabel("j")
           plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
-          plt.show()
+          plt.show()'''
 
-     return best_value, best_tmo, best_su, exec_time
+     if opt == 'latency':
+          results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+     else:
+          results_queue.put([best_value, best_tmo, exec_time, opt])
+          
+     return best_value, best_tmo, exec_time

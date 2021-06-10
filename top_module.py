@@ -13,6 +13,7 @@ from datetime import datetime
 import evaluate
 from classes.multi_manager import MultiManager
 from im2col_funcs import im2col_layer_transform
+from pprint import pprint
 
 if __name__ == "__main__":
 
@@ -152,13 +153,19 @@ if __name__ == "__main__":
     mem_scheme_sim_chunk_list = [mem_scheme_sim[i:i + input_settings.mem_scheme_parallel_processing] for i in
                                  range(0, len(mem_scheme_sim), input_settings.mem_scheme_parallel_processing)]
 
+    # Limiter counter for input 36
+    limiter_counter = 0
+
     for ii_mem_scheme_chunk, mem_scheme_sim_chunk in enumerate(mem_scheme_sim_chunk_list): # serial processing of chunks
 
         procs = []
         for mem_scheme_index, mem_scheme in enumerate(mem_scheme_sim_chunk):  # parallel processing of one chunk
-            current_mem_scheme_index = mem_scheme_index + input_settings.mem_scheme_parallel_processing * ii_mem_scheme_chunk
-            procs.append(Process(target=evaluate.mem_scheme_list_evaluate,
-                                 args=(input_settings, mem_scheme, current_mem_scheme_index, layers, multi_manager)))
+            #print("LIMITER :", limiter_counter)
+            if limiter_counter % 10 == 0:
+                current_mem_scheme_index = mem_scheme_index + input_settings.mem_scheme_parallel_processing * ii_mem_scheme_chunk
+                procs.append(Process(target=evaluate.mem_scheme_list_evaluate,
+                                    args=(input_settings, mem_scheme, current_mem_scheme_index, layers, multi_manager)))
+            limiter_counter += 1
         for p in procs: p.start()
         for p in procs: p.join()
 
