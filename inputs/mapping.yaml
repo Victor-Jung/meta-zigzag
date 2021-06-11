@@ -20,8 +20,8 @@ spatial_mapping_fixed:
   weight:
     MAC: []
     0:
-      Col: [[C,2],[K,8]]
-      Row: [[C,4],[FY,3]]
+      Col: [[C,16]]
+      Row: [[K,2],[FX,3],[OY,2]]
       #Col: [[C,16]]
       #Row: [[K,16]]
       #Col: [[C,4],[FX,3]]

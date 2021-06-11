@@ -814,11 +814,11 @@ def mem_scheme_evaluate(input_settings, layer_index, layer, im2col_layer, mem_sc
     discard_mem_scheme = False
     if discard_mem_scheme:
         return
-    if input_settings.fixed_spatial_unrolling or input_settings.spatial_unrolling_mode == 6:
+    if input_settings.fixed_spatial_unrolling:
         mem_scheme.spatial_unrolling = [input_settings.spatial_unrolling_single]
         mem_scheme.flooring = [input_settings.flooring_single]
         spatial_unrolling = [input_settings.spatial_unrolling_single]
-    if not input_settings.fixed_spatial_unrolling and input_settings.spatial_unrolling_mode != 6:
+    if not input_settings.fixed_spatial_unrolling:
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         print(current_time, str(input_settings.layer_filename.split('/')[-1]), 'L', layer_index, ', M',

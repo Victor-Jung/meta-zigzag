@@ -125,6 +125,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      # Extract the list of tuple from the tmo
      start_tmo = temporal_mapping_ordering
 
+     # Evaluate the starting tmo
      start_energy, start_utilization, start_latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
@@ -145,7 +146,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      # Init the Su Queue with the starting SU if specified by the user
      old_su = Spatial_Unrolling_Queue(su_max_size)
-     for loop in input_settings.spatial_unrolling_single['W'][1]:
+     for loop in spatial_unrolling['W'][1]:
           old_su.enqueue(loop)
 
      new_input_settings = deepcopy(input_settings)
@@ -182,11 +183,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
           # Uniforme random sampling in the neighborhoods
           i = np.random.randint(0, len(old_tmo))
-
-          if input_settings.spatial_unrolling_mode == 6:
-               j = np.random.randint(0, len(old_tmo) + 1)
-          else:
-               j = np.random.randint(0, len(old_tmo))
+          j = np.random.randint(0, len(old_tmo) + 1)
 
           if j == su_idx:
                
@@ -249,14 +246,21 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                
                mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
                          sm_fixed, flooring_fixed, input_settings.mac_array_info['array_size'])
+               
+               for operand in ['W','I','O']:
+                    for mem_idx, mem_level in enumerate(sm_fixed[operand]):
+                         for loop_idx, loop in enumerate(mem_level):
+                              sm_fixed[operand][mem_idx][loop_idx] = list(loop)
 
                # Init of New Obj
                new_mem_scheme = deepcopy(mem_scheme)
                new_input_settings = deepcopy(input_settings)
 
-               new_input_settings.spatial_unrolling_single['W'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-               new_input_settings.spatial_unrolling_single['I'][1] = [[loop[0], loop[1]] for loop in new_su.items]
-               new_input_settings.spatial_unrolling_single['O'][1] = [[loop[0], loop[1]] for loop in new_su.items]
+               ii_su = 0
+
+               new_input_settings.spatial_unrolling_single['W'] = sm_fixed['W']
+               new_input_settings.spatial_unrolling_single['I'] = sm_fixed['I']
+               new_input_settings.spatial_unrolling_single['O'] = sm_fixed['O']
                new_input_settings.flooring_single = flooring_fixed
 
                new_mem_scheme.spatial_unrolling = [new_input_settings.spatial_unrolling_single]
@@ -266,7 +270,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_spatial_unrolling = [new_input_settings.spatial_unrolling_single]
 
                new_spatial_loop = cls.SpatialLoop.extract_loop_info(new_mem_scheme.spatial_unrolling[ii_su], layer_post)
-               new_spatial_loop_comb = [new_spatial_loop, new_spatial_loop]
+               new_spatial_loop_fractional = cls.SpatialLoop.extract_loop_info(new_mem_scheme.fraction_spatial_unrolling[ii_su], layer_post)
+               new_spatial_loop_comb = [new_spatial_loop, new_spatial_loop_fractional]
 
                new_mac_costs = calculate_mac_level_costs(layer, layer_rounded, new_input_settings, new_mem_scheme, ii_su)
 
