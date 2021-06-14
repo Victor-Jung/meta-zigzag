@@ -640,7 +640,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         mem_idx = mem_scheme_index
         parent_folder = "%s" % (input_settings.results_path)
-        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
+        file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + "_su" + str(ii_su) + ".yaml"
 
         # Create the folder for the current NN if it doesn't exist
         if not os.path.exists(parent_folder):
