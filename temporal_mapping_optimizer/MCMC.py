@@ -147,7 +147,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      # Init the Su Queue with the starting SU if specified by the user
      old_su = Spatial_Unrolling_Queue(su_max_size)
      for loop in spatial_unrolling['W'][1]:
-          old_su.enqueue(loop)
+          old_su.enqueue((loop[0], loop[1]))
 
      new_input_settings = deepcopy(input_settings)
      new_spatial_loop_comb = deepcopy(spatial_loop_comb)
@@ -183,7 +183,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
           # Uniforme random sampling in the neighborhoods
           i = np.random.randint(0, len(old_tmo))
-          j = np.random.randint(0, len(old_tmo) + 1)
+          j = np.random.randint(0, len(old_tmo))
 
           if j == su_idx:
                
