@@ -28,7 +28,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
     elif opt == "mixed":
-        best_en, best_en_tmo, best_en_su, best_lat, best_ut, best_lat_tmo, best_lat_su, exec_time = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
+        best_en, best_en_tmo, best_en_su, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_su, best_lat_order, exec_time = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
                                 layer, im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "pareto":
@@ -39,7 +39,8 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
         optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
-    return best_en, best_en_tmo, best_en_su, best_lat, best_ut, best_lat_tmo, best_lat_su, exec_time
+    return best_en, best_en_tmo, best_en_su, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_su, best_lat_order, exec_time
+
 
 def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -47,7 +48,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
 
-    iter_number = 2000
+    iter_number = 250
 
     exec_time_list = []
     best_value_list = []
@@ -106,12 +107,14 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
                 best_en_tmo = result[2]
                 best_en_su = result[3]
                 exec_time = result[4]
-            if (result[-1] == 'latency'and result[0] < best_lat):
+                best_en_order = result[5]
+            if (result[-1] == 'latency' and result[0] < best_lat):
                 best_lat = result[0]
                 best_ut = result[1]
                 best_lat_tmo = result[2]
                 best_lat_su = result[3]
                 exec_time = result[4]
+                best_lat_order = result[5]
         
         print("Best Energy :", best_en)
         print("Best SU Energy :", best_en_su.items)
@@ -122,7 +125,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
         print("Best Latency :", best_lat)
         print("Exec time", exec_time)
 
-        return best_en, best_en_tmo, best_en_su, best_lat, best_ut, best_lat_tmo, best_lat_su, exec_time
+        return best_en, best_en_tmo, best_en_su, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_su, best_lat_order, exec_time
 
     else:
         for i in range(0, max_core):

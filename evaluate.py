@@ -21,6 +21,8 @@ from im2col_funcs import pw_layer_col2im
 from output_funcs import CommonSetting, print_xml, print_yaml
 import loma as loma
 from temporal_mapping_optimizer.optimizer import rl_temporal_mapping_optimizer
+from temporal_mapping_optimizer.update_cost_obj import *
+from temporal_mapping_optimizer.queue import Spatial_Unrolling_Queue
 import yaml
 
 
@@ -623,7 +625,10 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
     if RL_search_engine and not (input_settings.fixed_temporal_mapping or loma_search_engine):
 
-        best_en, best_en_tmo, best_en_su, best_lat, best_ut, best_ut_tmo, best_ut_su, exec_time = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+        t2 = time.time()
+        t_tmg = int(t2 - t1)
+
+        best_en, best_en_tmo, best_en_su, best_en_order, best_lat, best_ut, best_ut_tmo, best_ut_su, best_lat_order, exec_time = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
         # Convert tmo  and su to list of list instead of list of tuple 
@@ -672,7 +677,41 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
         with open(file_name, "w") as f:
             yaml.dump(data_doc, f)
 
-        return 
+        layer_comb = [layer_, layer_rounded]
+        layer = [im2col_layer, layer_rounded]
+
+        en_su_queue = Queue()
+        en_su_queue.items = best_en_su
+        en_input_settings, en_mem_scheme, en_mac_costs, en_spatial_loop_comb = update_cost_obj(en_su_queue, input_settings, mem_scheme, layer_, layer_rounded, layer_post, ii_su)
+
+        lat_su_queue = Queue()
+        lat_su_queue.items = best_ut_su
+        lat_input_settings, lat_mem_scheme, lat_mac_costs, lat_spatial_loop_comb = update_cost_obj(lat_su_queue, input_settings, mem_scheme, layer_, layer_rounded, layer_post, ii_su)
+        
+
+
+        # Convert output, which is just best allocated order at this point, to a CostModelOutput object
+        best_output_energy = loma.get_cost_model_output(best_en_order, en_input_settings, en_mem_scheme, layer_comb,
+                                                        en_spatial_loop_comb, ii_su)
+        best_output_utilization = loma.get_cost_model_output(best_lat_order, lat_input_settings, lat_mem_scheme, layer_comb, 
+                                                        lat_spatial_loop_comb, ii_su)
+
+        print(ii_su)
+        if ii_su == 4:
+            print('checking', best_output_energy.loop.req_mem_size['W'][1])
+
+        # Name variable for report saving
+        best_energy = best_en
+        best_energy_utilization = best_output_energy.utilization.mac_utilize_no_load
+        best_energy_latency = best_output_energy.utilization.latency_no_load
+        
+        best_utilization_energy = best_output_energy.total_cost
+        best_utilization = best_ut
+        best_latency = best_lat
+
+        tl_list = True
+        tl_count = 1
+        #return 
 
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")

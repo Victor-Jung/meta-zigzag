@@ -1,6 +1,7 @@
 from temporal_mapping_optimizer.cost_esimator import *
 from temporal_mapping_optimizer import loop_type_to_ids, ids_to_loop_type
 from temporal_mapping_optimizer.queue import Spatial_Unrolling_Queue
+from temporal_mapping_optimizer.update_cost_obj import *
 
 from bsgutils import utilization_rate_optimizer
 from loma import limit_lpf, get_prime_factors
@@ -126,7 +127,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      start_tmo = temporal_mapping_ordering
 
      # Evaluate the starting tmo
-     start_energy, start_utilization, start_latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     start_energy, start_utilization, start_latency, start_order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
      if opt == "energy":
           best_value = start_energy.item()
@@ -140,6 +141,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           old_value = start_energy/start_utilization
      best_tmo = start_tmo
      old_tmo = start_tmo
+     best_order = start_order
+     old_order = start_order
 
      su_max_size = 256
      su_action_count = 0
@@ -162,7 +165,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
           
-          energy, utilization, latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          energy, utilization, latency, order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
           exec_time = time.time() - start_time
 
           if opt == "energy":
@@ -174,7 +177,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           elif opt == "pareto":
                best_value = energy.item()/utilization
           
-          return best_value, start_tmo, exec_time
+          return best_value, start_tmo, exec_time, order
 
      for temperature in temperature_linspace:
           
@@ -183,7 +186,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
           # Uniforme random sampling in the neighborhoods
           i = np.random.randint(0, len(old_tmo))
-          j = np.random.randint(0, len(old_tmo))
+          j = np.random.randint(0, len(old_tmo) + 1)
 
           if j == su_idx:
                
@@ -199,89 +202,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                for loop in q_output:
                     new_tmo.insert(i, loop)
 
-               # Split our Su in two list where the product of pf is <= 16 (Row and Col)
-               row_list = []
-               col_list = []
-               row_pf_product = 1
-               col_pf_product = 1
-               for loop in new_su.items:
-                    if (row_pf_product * loop[1]) <= 16:
-                         row_pf_product *= loop[1]
-                         row_list.append([ids_to_loop_type[loop[0]], loop[1]])
-                    else:
-                         col_pf_product *= loop[1]
-                         col_list.append([ids_to_loop_type[loop[0]], loop[1]])
-
-               # Flooring Generation
-               sm_fixed = {'W': [], 'I': [], 'O': []}
-               flooring_fixed = {'W': [], 'I': [], 'O': []}
-               i2a = {'B': 7, 'K': 6, 'C': 5, 'OY': 4, 'OX': 3, 'FY': 2, 'FX': 1}
-               with open("./inputs/mapping.yaml") as f:
-                    fl = yaml.full_load(f)
-               fl['spatial_mapping_fixed']['weight'][0]['Col'] = col_list
-               fl['spatial_mapping_fixed']['weight'][0]['Row'] = row_list
-               fl['spatial_mapping_fixed']['input'][0]['Col'] = col_list
-               fl['spatial_mapping_fixed']['input'][0]['Row'] = row_list
-               fl['spatial_mapping_fixed']['output'][0]['Col'] = col_list
-               fl['spatial_mapping_fixed']['output'][0]['Row'] = row_list
-
-               for op in fl['spatial_mapping_fixed']:
-                    if op == 'weight': operand = 'W'
-                    elif op == 'input': operand = 'I'
-                    elif op == 'output': operand = 'O'
-                    sm_fixed[operand] = [[] for x in fl['spatial_mapping_fixed'][op]]
-                    flooring_fixed[operand] = [[] for x in fl['spatial_mapping_fixed'][op]]
-                    for lev in fl['spatial_mapping_fixed'][op]:
-                         ii_lev = 0
-                         if lev == 'MAC' : ii_lev = 0
-                         else : ii_lev = lev + 1
-                         flooring_fixed[operand][ii_lev] = [[] for d in fl['spatial_mapping_fixed'][op][lev]]
-                         for dim in fl['spatial_mapping_fixed'][op][lev]:
-                              ii_dim = 0
-                              if dim == 'Col': ii_dim = 0
-                              elif dim == 'Row': ii_dim = 1
-                              for pf in fl['spatial_mapping_fixed'][op][lev][dim]:
-                                   sm_fixed[operand][ii_lev].append(tuple([i2a[pf[0]], pf[1]]))
-                                   flooring_fixed[operand][ii_lev][ii_dim].append(i2a[pf[0]])
-               
-               mem_unroll_active, mem_unroll_total = cmf.get_mem_complete_unrolling_count(
-                         sm_fixed, flooring_fixed, input_settings.mac_array_info['array_size'])
-               
-               for operand in ['W','I','O']:
-                    for mem_idx, mem_level in enumerate(sm_fixed[operand]):
-                         for loop_idx, loop in enumerate(mem_level):
-                              sm_fixed[operand][mem_idx][loop_idx] = list(loop)
-
-               # Init of New Obj
-               new_mem_scheme = deepcopy(mem_scheme)
-               new_input_settings = deepcopy(input_settings)
-
-               ii_su = 0
-
-               new_input_settings.spatial_unrolling_single['W'] = sm_fixed['W']
-               new_input_settings.spatial_unrolling_single['I'] = sm_fixed['I']
-               new_input_settings.spatial_unrolling_single['O'] = sm_fixed['O']
-               new_input_settings.flooring_single = flooring_fixed
-
-               new_mem_scheme.spatial_unrolling = [new_input_settings.spatial_unrolling_single]
-               new_mem_scheme.flooring = [new_input_settings.flooring_single]
-               new_mem_scheme.mem_unroll_complete = {'mem_unroll_active': mem_unroll_active, 'mem_unroll_total': mem_unroll_total}
-
-               new_spatial_unrolling = [new_input_settings.spatial_unrolling_single]
-
-               new_spatial_loop = cls.SpatialLoop.extract_loop_info(new_mem_scheme.spatial_unrolling[ii_su], layer_post)
-               new_spatial_loop_fractional = cls.SpatialLoop.extract_loop_info(new_mem_scheme.fraction_spatial_unrolling[ii_su], layer_post)
-               new_spatial_loop_comb = [new_spatial_loop, new_spatial_loop_fractional]
-
-               new_mac_costs = calculate_mac_level_costs(layer, layer_rounded, new_input_settings, new_mem_scheme, ii_su)
-
-               new_mem_scheme.mem_utilization_rate, good_scheme = utilization_rate_optimizer(new_mem_scheme.mem_size,
-                                                                                               new_mem_scheme.spatial_unrolling[ii_su],
-                                                                                               layer_post,
-                                                                                               new_input_settings.precision,
-                                                                                               new_mem_scheme.mem_utilization_rate,
-                                                                                               new_spatial_loop.unit_unique)
-               
+               new_input_settings, new_mem_scheme, new_mac_costs, new_spatial_loop_comb = update_cost_obj(new_su, input_settings, mem_scheme, layer, layer_rounded, layer_post, ii_su)
 
           else: 
                # Apply the selected swap
@@ -293,7 +214,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_tmo = tmo_swap(old_tmo, i, j)
 
           # Evaluate the quality of the new tmo + su
-          new_energy, new_utilization, new_latency = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
+          new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
                                                                  new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
 
           # Compute the acceptance probability p of the new tmo
@@ -314,11 +235,13 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                # Move on the next point    
                old_tmo = deepcopy(new_tmo)
                old_su = deepcopy(new_su)
+               old_value = new_value
+               old_order = new_order
+
                input_settings = new_input_settings
                spatial_loop_comb = new_spatial_loop_comb
                mem_scheme = new_mem_scheme
-               mac_costs = new_mac_costs
-               old_value = new_value
+               mac_costs = new_mac_costs   
 
                if p >= 1:
                     explotation_counter += 1
@@ -329,6 +252,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                if old_value < best_value:
                     best_tmo = old_tmo
                     best_su = old_su
+                    best_order = old_order
+
                     best_input_settings = input_settings
                     best_spatial_loop_comb = spatial_loop_comb
                     best_mem_scheme = mem_scheme
@@ -371,8 +296,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           plt.show()'''
 
      if opt == 'latency':
-          results_queue.put([best_value, best_ut, best_tmo, best_su, exec_time, opt])
+          results_queue.put([best_value, best_ut, best_tmo, best_su, exec_time, best_order, opt])
      else:
-          results_queue.put([best_value, None, best_tmo, best_su, exec_time, opt])
+          results_queue.put([best_value, None, best_tmo, best_su, exec_time, best_order, opt])
           
      return best_value, best_tmo, exec_time
