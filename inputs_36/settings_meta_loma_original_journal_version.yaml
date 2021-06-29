@@ -1,8 +1,8 @@
 
 # OUTPUT FILE
 result_path : './results_36'
-result_filename : MobileNet_v3_small
-layer_filename : './NN_layers/MobileNet_v3_small'
+result_filename : ResNet18  
+layer_filename : './NN_layers/ResNet18'
 
 
 # OUTPUT FILE PRINTING MODE
@@ -27,7 +27,7 @@ save_all_temporal_mapping_result : False
 
 # WORKLOAD
 # layer_indices can be a single-element list or a multiple-element list or ALL.
-layer_indices : ALL
+layer_indices : [3]
 #layer_indices : ALL
 
 # MULTIPROCESSING
@@ -47,7 +47,7 @@ temporal_mapping_search_method : meta-loma
 # Greedy mapping allows MAC array to be always fully utilized except for the last time,
   # e.g. to map (C,10) on a row of 8 PEs, without greedy mapping enabled, the tool will map (C,5), (C,5);
   # with greedy mapping enabled, it will map (C,8), (C,2).
-spatial_unrolling_search_method : greedy_mapping_with_hint
+spatial_unrolling_search_method : hint_driven
 spatial_utilization_threshold : 0
 
 # CONV im2col ENABLE

@@ -11,6 +11,7 @@ from pprint import pprint
 import numpy as np
 import random
 import time
+import math
 
 
 def tmo_swap(tmo, i, j):
@@ -60,11 +61,33 @@ def get_lpf_tmo(layer_post, spatial_unrolling):
      layer_spec_temporal = form_tmo(layer_post, spatial_unrolling)
      layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal)
 
+     test = False
+     ceiling = False
+     pf_threshold = 7
+     pf = 0
+
      for loop_type in list(layer_spec_pf.keys()):
           for i in range(len(layer_spec_pf[loop_type])):
                loop_size = layer_spec_pf[loop_type]
                for number_of_loop in range(layer_spec_pf_count[loop_type][i]):
-                    lpf_tmo.append((loop_type_to_ids[loop_type], loop_size[i]))
+                    if test:
+                         if loop_size[i] >= pf_threshold:
+                              pf = loop_size[i]
+                              while pf >= pf_threshold:
+                                   lpf_tmo.append((loop_type_to_ids[loop_type], 2))
+                                   if ceiling:
+                                        pf = math.ceil(pf/2)
+                                   else:
+                                        pf = pf/2
+                              if ceiling:
+                                   lpf_tmo.append((loop_type_to_ids[loop_type],  math.ceil(pf/2)))
+                              else:
+                                   lpf_tmo.append((loop_type_to_ids[loop_type], pf/2))
+                              lpf_tmo.append((loop_type_to_ids[loop_type], 2))
+                         else:
+                              lpf_tmo.append((loop_type_to_ids[loop_type], loop_size[i]))
+                    else:
+                         lpf_tmo.append((loop_type_to_ids[loop_type], loop_size[i]))
 
      return lpf_tmo
 

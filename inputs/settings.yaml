@@ -5,10 +5,10 @@ fixed_temporal_mapping: false
 im2col_enable_for_all_layers: false
 im2col_enable_for_pointwise_layers: true
 layer_filename: './NN_layers/AlexNet'
-layer_indices: [1, 2, 3, 4, 5]
+layer_indices: [3]
 layer_multiprocessing: 1
 max_nb_lpf_layer: 7
-result_filename: MobileNet_v3_small
+result_filename: AlexNet
 result_path: ./results_test
 result_print_mode: complete
 result_print_type: xml
