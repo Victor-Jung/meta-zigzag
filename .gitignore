@@ -15,3 +15,6 @@ env
 .env/
 runs/
 results_360/
+baseline_results_36/
+ceiling_results_36/
+float_results_36/
