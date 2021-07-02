@@ -61,7 +61,7 @@ def get_lpf_tmo(layer_post, spatial_unrolling):
      layer_spec_temporal = form_tmo(layer_post, spatial_unrolling)
      layer_spec_pf, layer_spec_pf_count, total_lpf_count = get_prime_factors(layer_spec_temporal)
 
-     test = False
+     test = True
      ceiling = False
      pf_threshold = 7
      pf = 0

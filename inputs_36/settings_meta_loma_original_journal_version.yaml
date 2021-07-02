@@ -1,8 +1,8 @@
 
 # OUTPUT FILE
 result_path : './results_36'
-result_filename : ResNet18  
-layer_filename : './NN_layers/ResNet18'
+result_filename : AlexNet
+layer_filename : './NN_layers/AlexNet'
 
 
 # OUTPUT FILE PRINTING MODE

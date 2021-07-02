@@ -161,7 +161,7 @@ if __name__ == "__main__":
         procs = []
         for mem_scheme_index, mem_scheme in enumerate(mem_scheme_sim_chunk):  # parallel processing of one chunk
             #print("LIMITER :", limiter_counter)
-            if limiter_counter % 10 == 0:
+            if limiter_counter < 10:
                 current_mem_scheme_index = mem_scheme_index + input_settings.mem_scheme_parallel_processing * ii_mem_scheme_chunk
                 procs.append(Process(target=evaluate.mem_scheme_list_evaluate,
                                     args=(input_settings, mem_scheme, current_mem_scheme_index, layers, multi_manager)))
