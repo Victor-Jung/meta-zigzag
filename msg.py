@@ -7,7 +7,11 @@ import pickle
 from classes import Layer
 from math import log
 import bsgutils as su
+import random
 import sys
+
+from temporal_mapping_optimizer.MCMC import get_lpf_tmo
+from copy import deepcopy
 
 
 class MemoryNode:
@@ -1215,6 +1219,82 @@ def get_input_data_reuse(pf_list, layer):
     yval = (oy_tot * fy_tot) / (layer['SY'] * (oy_tot - 1) + layer['SFY'] * (fy_tot - 1) + 1)
 
     return xval * yval * k_tot
+
+def random_spatial_unrolling_generator(mem_scheme, array_dimension, layer, utilization_threshold, number_of_su):
+
+    su_list = []
+    flooring_list = []
+    empty_su = {'W': [[],[],[]], 'I': [[],[],[],[]], 'O': [[],[],[],[]]}
+
+    pf_loop_list = get_lpf_tmo(layer, empty_su)
+
+    for i in range(number_of_su):
+        merged_loop_list = []
+        flooring = []
+        row_loop_list = []
+        col_loop_list = []
+        row_size = 1
+        col_size = 1
+        reset_counter = 0
+        su_utilization = 0
+        temp_pf_loop_list = deepcopy(pf_loop_list)
+
+        while su_utilization < utilization_threshold:
+            
+            # if nothing is added during 10 iterations reset the su
+            if reset_counter > 20:
+                row_loop_list = []
+                col_loop_list = []
+                row_size = 1
+                col_size = 1
+                reset_counter = 0
+                su_utilization = 0
+                temp_pf_loop_list = deepcopy(pf_loop_list)
+
+            row_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
+
+            if row_size*temp_pf_loop_list[row_rand_idx][1] <= array_dimension[0]:
+                row_loop_list.append(temp_pf_loop_list[row_rand_idx])
+                row_size *= temp_pf_loop_list[row_rand_idx][1]
+                temp_pf_loop_list.pop(row_rand_idx)
+                reset_counter = 0
+            else:
+                reset_counter += 1
+
+            col_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
+                
+            if col_size*temp_pf_loop_list[col_rand_idx][1] <= array_dimension[1]:
+                col_loop_list.append(temp_pf_loop_list[col_rand_idx])
+                col_size *= temp_pf_loop_list[col_rand_idx][1]
+                temp_pf_loop_list.pop(col_rand_idx)
+                reset_counter = 0
+            else:
+                reset_counter += 1
+
+            su_utilization = (row_size*col_size) / (array_dimension[0]*array_dimension[1])
+
+        # Merge loop into su
+        for loop_idx, loop in enumerate(row_loop_list + col_loop_list):
+            if any([loop[0] == merged_loop[0] for merged_loop in merged_loop_list]):
+                for merged_idx, merged_loop in enumerate(merged_loop_list):
+                    if loop[0] == merged_loop[0]:
+                        merged_loop_list[merged_idx] = [merged_loop[0], merged_loop[1]*loop[1]]
+            else:
+                merged_loop_list.append(list(loop))
+
+        # Generate flooring
+        for loop in merged_loop_list:
+            flooring.append(loop[0])
+
+        su_list.append({'W': [[],merged_loop_list,[]], 
+                        'I': [[],merged_loop_list,[],[]], 
+                        'O': [[],merged_loop_list,[],[]]})
+        flooring_list.append({'W': [[],[flooring],[]], 
+                        'I': [[],[flooring],[],[]], 
+                        'O': [[],[flooring],[],[]]})
+
+    return su_list, flooring_list, mem_scheme, False
+
 
 
 def spatial_unrolling_generator_with_hint(mem_scheme, array_dimension, layer, unrolling_scheme_list,

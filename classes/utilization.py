@@ -92,10 +92,10 @@ class Utilization(object):
                 for operand, lv in shared_mem_list:
                     mem_utilize_shared[operand][lv] = va
 
-        for operand in ['W', 'I', 'O']:
+        '''for operand in ['W', 'I', 'O']:
             for le, mem_utilize_shared_single in enumerate(mem_utilize_shared[operand]):
                 if mem_utilize_shared_single > 1:
-                    raise ValueError('%s memory level %d is too small to hold assigned loops.'%(operand, le))
+                    raise ValueError('%s memory level %d is too small to hold assigned loops.'%(operand, le))'''
 
         '''
         mac_utilize_spatial: MAC array utilization is spatially dropped in two cases:

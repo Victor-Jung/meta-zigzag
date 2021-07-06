@@ -863,8 +863,24 @@ def mem_scheme_evaluate(input_settings, layer_index, layer, im2col_layer, mem_sc
         print(current_time, str(input_settings.layer_filename.split('/')[-1]), 'L', layer_index, ', M',
               mem_scheme_index + 1, '/', mem_scheme_count, ' SUG started')
 
+        if input_settings.spatial_unrolling_mode == 6:
+            spatial_unrolling, flooring, mem_scheme, not_good = msg.random_spatial_unrolling_generator(mem_scheme,
+                input_settings.mac_array_info['array_size'], layer_info[layer_index],
+                utilization_threshold=0.8, number_of_su=5)
+            mem_scheme.fraction_spatial_unrolling = spatial_unrolling
+            mem_scheme.greedy_mapping_flag = [False] * len(spatial_unrolling)
+            mem_scheme.footer_info = [0] * len(spatial_unrolling)
+            mem_unroll_active = []
+            mem_unroll_total = []
+            
+            for su_id, _ in enumerate(spatial_unrolling):
+                mem_unroll_active_, mem_unroll_total_ = cmf.get_mem_complete_unrolling_count(
+                    spatial_unrolling[su_id], flooring[su_id], input_settings.mac_array_info['array_size'])
+                mem_unroll_active.append(mem_unroll_active_)
+                mem_unroll_total.append(mem_unroll_total_)
+
         # greedy mapping without hint
-        if input_settings.spatial_unrolling_mode == 5:
+        elif input_settings.spatial_unrolling_mode == 5:
             layer_rounded = cls.layer_rounding.LayerRound2(layer_info[layer_index],
                                                            input_settings.mac_array_info['array_size'],
                                                            input_settings.spatial_utilization_threshold)

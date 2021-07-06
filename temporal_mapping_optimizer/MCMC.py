@@ -110,6 +110,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      max_temperature = 0.05
      min_temperature = max_temperature*(0.999**2000)
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
+     #temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
 
      # Plot lists
      accepted_p_list = []
@@ -146,11 +147,15 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      su_max_size = 256
      su_action_count = 0
+     iter_counter = 0
 
      # Init the Su Queue with the starting SU if specified by the user
      old_su = Spatial_Unrolling_Queue(su_max_size)
      for loop in spatial_unrolling['W'][1]:
-          old_su.enqueue((loop[0], loop[1]))
+          factors = factorint(loop[1])
+          for pf, count in factors.items():
+               for i in range(count):
+                    old_su.enqueue((loop[0], pf))
 
      new_input_settings = deepcopy(input_settings)
      new_spatial_loop_comb = deepcopy(spatial_loop_comb)
@@ -183,10 +188,16 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           
           # Note : the tmo size is dynamic here depending on how many loops are in the su queue
           su_idx = len(old_tmo)
-
+          
           # Uniforme random sampling in the neighborhoods
-          i = np.random.randint(0, len(old_tmo))
-          j = np.random.randint(0, len(old_tmo) + 1)
+          if iter_counter < iter:
+               i = np.random.randint(0, len(old_tmo))
+               j = np.random.randint(0, len(old_tmo))
+          else:
+               i = np.random.randint(0, len(old_tmo))
+               j = np.random.randint(0, len(old_tmo) + 1)
+
+          iter_counter += 1
 
           if j == su_idx:
                
