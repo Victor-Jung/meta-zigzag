@@ -110,7 +110,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      max_temperature = 0.05
      min_temperature = max_temperature*(0.999**2000)
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
-     #temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
+     temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
 
      # Plot lists
      accepted_p_list = []

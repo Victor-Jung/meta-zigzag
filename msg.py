@@ -1220,78 +1220,136 @@ def get_input_data_reuse(pf_list, layer):
 
     return xval * yval * k_tot
 
+
+def get_difference_score(new_su, su_list):
+
+    # Compute difference Score between new_su and su in su_list in the following way: 
+    # substract all param of new_su with his equivalent in su list and sum the abs value of this difference.
+    # Finally divide it by the total number of parameter.
+    # If 2 SU are the same this score will be 0, if they are very different it will be close to 1
+
+    new_su_param_list = [0, 0, 0, 0, 0, 0, 0]
+    difference_score_list = []
+
+    for loop_idx, loop_size in new_su:
+        new_su_param_list[loop_idx] = loop_size
+
+    for su in su_list:
+        su_loop_list = su['W'][1]
+        difference_score = 0
+        su_param_list = [0, 0, 0, 0, 0, 0, 0]
+
+        for loop_idx, loop_size in su_loop_list:
+            su_param_list[loop_idx] = loop_size
+        
+        for loop_idx, loop_size in enumerate(new_su_param_list):
+            difference_score += abs(new_su_param_list[loop_idx] - su_param_list[loop_idx])
+
+        difference_score /= (sum(new_su_param_list) + sum(su_param_list))
+        difference_score_list.append(difference_score)
+
+    return difference_score_list
+
+
 def random_spatial_unrolling_generator(mem_scheme, array_dimension, layer, utilization_threshold, number_of_su):
+
+    # Generate several Random Spatial Unrolling with a utilization above the given threshold and with a low difference score 
+    # compared to previously generated Spatial Unrolling
 
     su_list = []
     flooring_list = []
     empty_su = {'W': [[],[],[]], 'I': [[],[],[],[]], 'O': [[],[],[],[]]}
+    difference_score_threshold = 0.3
+    diff_reset = 0
 
     pf_loop_list = get_lpf_tmo(layer, empty_su)
 
     for i in range(number_of_su):
-        merged_loop_list = []
-        flooring = []
-        row_loop_list = []
-        col_loop_list = []
-        row_size = 1
-        col_size = 1
-        reset_counter = 0
-        su_utilization = 0
-        temp_pf_loop_list = deepcopy(pf_loop_list)
 
-        while su_utilization < utilization_threshold:
-            
-            # if nothing is added during 10 iterations reset the su
-            if reset_counter > 20:
-                row_loop_list = []
-                col_loop_list = []
-                row_size = 1
-                col_size = 1
-                reset_counter = 0
-                su_utilization = 0
-                temp_pf_loop_list = deepcopy(pf_loop_list)
+        diff_score_flag = True
 
-            row_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
+        while diff_score_flag:
 
-            if row_size*temp_pf_loop_list[row_rand_idx][1] <= array_dimension[0]:
-                row_loop_list.append(temp_pf_loop_list[row_rand_idx])
-                row_size *= temp_pf_loop_list[row_rand_idx][1]
-                temp_pf_loop_list.pop(row_rand_idx)
-                reset_counter = 0
-            else:
-                reset_counter += 1
+            merged_loop_list = []
+            flooring = []
+            row_loop_list = []
+            col_loop_list = []
+            row_size = 1
+            col_size = 1
+            reset_counter = 0
+            su_utilization = 0
+            temp_pf_loop_list = deepcopy(pf_loop_list)
+            difference_score_list = []
 
-            col_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
+            while su_utilization < utilization_threshold:
                 
-            if col_size*temp_pf_loop_list[col_rand_idx][1] <= array_dimension[1]:
-                col_loop_list.append(temp_pf_loop_list[col_rand_idx])
-                col_size *= temp_pf_loop_list[col_rand_idx][1]
-                temp_pf_loop_list.pop(col_rand_idx)
-                reset_counter = 0
-            else:
-                reset_counter += 1
+                # if nothing is added during 10 iterations reset the su
+                if reset_counter > 20:
+                    row_loop_list = []
+                    col_loop_list = []
+                    row_size = 1
+                    col_size = 1
+                    reset_counter = 0
+                    su_utilization = 0
+                    temp_pf_loop_list = deepcopy(pf_loop_list)
 
-            su_utilization = (row_size*col_size) / (array_dimension[0]*array_dimension[1])
+                row_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
 
-        # Merge loop into su
-        for loop_idx, loop in enumerate(row_loop_list + col_loop_list):
-            if any([loop[0] == merged_loop[0] for merged_loop in merged_loop_list]):
-                for merged_idx, merged_loop in enumerate(merged_loop_list):
-                    if loop[0] == merged_loop[0]:
-                        merged_loop_list[merged_idx] = [merged_loop[0], merged_loop[1]*loop[1]]
-            else:
-                merged_loop_list.append(list(loop))
+                if row_size*temp_pf_loop_list[row_rand_idx][1] <= array_dimension[0]:
+                    row_loop_list.append(temp_pf_loop_list[row_rand_idx])
+                    row_size *= temp_pf_loop_list[row_rand_idx][1]
+                    temp_pf_loop_list.pop(row_rand_idx)
+                    reset_counter = 0
+                else:
+                    reset_counter += 1
 
-        # Generate flooring
-        for loop in merged_loop_list:
-            flooring.append(loop[0])
+                col_rand_idx = random.randint(0, len(temp_pf_loop_list) - 1)
+                    
+                if col_size*temp_pf_loop_list[col_rand_idx][1] <= array_dimension[1]:
+                    col_loop_list.append(temp_pf_loop_list[col_rand_idx])
+                    col_size *= temp_pf_loop_list[col_rand_idx][1]
+                    temp_pf_loop_list.pop(col_rand_idx)
+                    reset_counter = 0
+                else:
+                    reset_counter += 1
 
-        su_list.append({'W': [[],merged_loop_list,[]], 
-                        'I': [[],merged_loop_list,[],[]], 
-                        'O': [[],merged_loop_list,[],[]]})
-        flooring_list.append({'W': [[],[flooring],[]], 
-                        'I': [[],[flooring],[],[]], 
-                        'O': [[],[flooring],[],[]]})
+                su_utilization = (row_size*col_size) / (array_dimension[0]*array_dimension[1])
+
+            # Merge loop into su
+            for loop_idx, loop in enumerate(row_loop_list + col_loop_list):
+                if any([loop[0] == merged_loop[0] for merged_loop in merged_loop_list]):
+                    for merged_idx, merged_loop in enumerate(merged_loop_list):
+                        if loop[0] == merged_loop[0]:
+                            merged_loop_list[merged_idx] = [merged_loop[0], merged_loop[1]*loop[1]]
+                else:
+                    merged_loop_list.append(list(loop))
+
+            difference_score_list = get_difference_score(merged_loop_list, su_list)
+
+            diff_score_flag = False
+            for diff_score in difference_score_list:
+                if diff_score < difference_score_threshold:
+                    diff_score_flag = True
+            
+            diff_reset += 1
+
+            if diff_reset > 20:
+                break
+
+            if not diff_score_flag:    
+                
+                diff_reset = 0
+
+                # Generate flooring
+                for loop in merged_loop_list:
+                    flooring.append(loop[0])
+
+                su_list.append({'W': [[],merged_loop_list,[]], 
+                                'I': [[],merged_loop_list,[],[]], 
+                                'O': [[],merged_loop_list,[],[]]})
+                flooring_list.append({'W': [[],[flooring],[]], 
+                                'I': [[],[flooring],[],[]], 
+                                'O': [[],[flooring],[],[]]})
 
     return su_list, flooring_list, mem_scheme, False
 
