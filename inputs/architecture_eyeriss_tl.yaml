@@ -1,0 +1,76 @@
+PE_array:                                       
+  Col : 14
+  Row : 12
+
+precision:
+  I : 16
+  W : 16
+  O_partial : 16
+  O_final : 16
+
+single_mac_energy_active : 2.2
+single_mac_energy_idle : 0.00
+
+# The characteristics of the systolic flow of data in the array:
+# 1 is horizontal
+# 2 is vertical
+# 3 is diagonal
+# 0 is non-systolic
+mac_array_stall :
+  systolic: 0
+
+############### you need to set them if doing architecture search ###############
+area_max : 3.5e6
+area_utilization : 0.75
+mem_ratio : 8                                   # minimum ratio between two adjacent levels in the memory hierarchy
+PE_memory_depth : 2                             # max number of memory levels in the hierarchy inside the PEs
+PE_threshold : 3000                             # maximum memory size that can be stored inside each PE
+CHIP_memory_depth : 2                           # max number of memory levels in the hierarchy outside the PEs
+
+banking : [1,4]                                 # memory banking possibility when construct a behaviour memory level
+                                                # with physical memory modules from the memory pool.
+
+L2_size:                                        # Each size listed is expressed as a behaviour memory level drawn from the memory pool
+  [1048576, 4194304]                            # when does it have to be specified? For now it has to be there when doing architecture search.
+L1_size:
+  [65536, 524288]
+
+memory_hint:
+  sramx:
+      memory_instance : sram16Mb
+      memory_unroll : 1
+      operand_stored : [O,I,W]
+#################################################################################
+# python3 top_module.py --arch ./inputs/architecture_eyeriss_tl.yaml --map ./inputs/mapping_eyeriss_tl.yaml --set ./inputs/settings.yaml --mempool ./inputs/memory_pool_eyeriss_tl.yaml
+
+############# you need to set them if not doing architecture search #############
+memory_hierarchy:
+  rf_psum:
+      memory_instance : psum_spad             # element in the memory pool which is taken;
+      memory_unroll : 168                     # number of separate instances present in the architecture
+      operand_stored : [O]
+  rf_weight:
+      memory_instance: weight_spad
+      memory_unroll: 168
+      operand_stored: [W]
+  rf_input:
+      memory_instance: input_spad
+      memory_unroll: 168
+      operand_stored: [I]
+  dummy_buffer:
+      memory_instance: dummy_buffer
+      memory_unroll: 14
+      operand_stored: []
+  global_buffer:
+      memory_instance: shared_glb
+      memory_unroll: 1
+      operand_stored: [W,I,O]
+  top_dram :
+      memory_instance: top_dram
+      memory_unroll: 1
+      operand_stored: [W,I,O]
+#################################################################################
+
+# If the below parameter is set as True and fixed_spatial_unrolling (in settings.yaml) is False,
+# the tool will try out all possible memory unrolling combinations.
+memory_unroll_fully_flexible: False

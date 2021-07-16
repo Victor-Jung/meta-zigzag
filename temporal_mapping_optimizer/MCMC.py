@@ -101,7 +101,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
      # Hyperparameters
      max_temperature = 0.05
-     min_temperature = max_temperature*(0.999**2000)
+     min_temperature = max_temperature*(0.999**iter)
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
 
      accepted_p_list = []
