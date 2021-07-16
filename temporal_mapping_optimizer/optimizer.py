@@ -28,7 +28,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
     elif opt == "mixed":
-        best_en, best_en_tmo, best_lat, best_ut, best_lat_tmo, exec_time = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
+        best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
                                 layer, im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "pareto":
@@ -39,7 +39,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
         optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
-    return best_en, best_en_tmo, best_lat, best_ut, best_lat_tmo, exec_time, opt
+    return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time, opt
 
 def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -99,22 +99,24 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     if opt == "mixed":
         for i in range(0, max_core):
             result = results_queue.get()
-            if ((len(result) == 4) and result[0] < best_en):
+            if ((len(result) == 5) and result[0] < best_en):
                 best_en = result[0]
                 best_en_tmo = result[1]
                 exec_time = result[2]
-            if (len(result) == 5 and result[0] < best_lat):
+                best_en_order = result[3]
+            if (len(result) == 6 and result[0] < best_lat):
                 best_lat = result[0]
                 best_ut = result[1]
                 best_lat_tmo = result[2]
                 exec_time = result[3]
+                best_lat_order = result[4]
         
         print("Best Energy :", best_en)
         print("Best Utilization :", best_ut)
         print("Best Latency :", best_lat)
         print("Exec time", exec_time)
 
-        return best_en, best_en_tmo, best_lat, best_ut, best_lat_tmo, exec_time
+        return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time
 
     else:
         for i in range(0, max_core):

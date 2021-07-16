@@ -631,6 +631,7 @@ def find_total_cost_layer(allocated_order, loop_fractional, utilization, active_
             #                                         schedule_info,
             #                                         input_settings.mac_array_info, loop,
             #                                         msc.mem_fifo))
+            #print(f'op: {operand} level: {level} cost: {operand_cost[operand][-1]}')
         total_cost_layer += np.sum(operand_cost[operand])
 
     total_cost_layer += active_mac_cost + idle_mac_cost

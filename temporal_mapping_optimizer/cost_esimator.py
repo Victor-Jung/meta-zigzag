@@ -89,4 +89,5 @@ def get_temporal_loop_estimation(
         energy,
         utilization,
         latency,
+        allocated_order,
     )

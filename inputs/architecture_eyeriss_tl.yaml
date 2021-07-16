@@ -64,7 +64,7 @@ memory_hierarchy:
   global_buffer:
       memory_instance: shared_glb
       memory_unroll: 1
-      operand_stored: [W,I,O]
+      operand_stored: [I,O]
   top_dram :
       memory_instance: top_dram
       memory_unroll: 1

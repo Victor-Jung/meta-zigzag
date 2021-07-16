@@ -605,7 +605,10 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         else:
 
-            best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+            t2 = time.time()
+            t_tmg = int(t2 - t1)
+
+            best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_ut_tmo, best_lat_order, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
             # Convert tmo to list of list instead of list of tuple   
@@ -646,7 +649,28 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             with open(file_name, "w") as f:
                 yaml.dump(data_doc, f)
 
-        return
+            layer_comb = [layer_, layer_rounded]
+            layer = [im2col_layer, layer_rounded]
+
+            # Convert output, which is just best allocated order at this point, to a CostModelOutput object
+            best_output_energy = loma.get_cost_model_output(best_en_order, input_settings, mem_scheme, layer_comb,
+                                                            spatial_loop_comb, ii_su)
+            best_output_utilization = loma.get_cost_model_output(best_lat_order, input_settings, mem_scheme, layer_comb, 
+                                                            spatial_loop_comb, ii_su)
+
+            # Name variable for report saving
+            best_energy = best_en
+            best_energy_utilization = best_output_energy.utilization.mac_utilize_no_load
+            best_energy_latency = best_output_energy.utilization.latency_no_load
+            
+            best_utilization_energy = best_output_energy.total_cost
+            best_utilization = best_ut
+            best_latency = best_lat
+
+            tl_list = True
+            tl_count = 1 
+
+        #return
 
     if loma_search_engine and not input_settings.fixed_temporal_mapping:
 

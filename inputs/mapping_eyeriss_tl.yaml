@@ -20,24 +20,23 @@ temporal_mapping_fixed:
 spatial_mapping_fixed:
   weight:
     MAC: []
-    0: []
-    1: 
+    0: 
       Col: [[OY,7],[K,2]]
       Row: [[FY,11]]
-    2: []
+    1: []
   input:
     MAC: []
-    0: []
-    1: 
+    0: 
       Col: [[OY,7],[K,2]]
       Row: [[FY,11]]
+    1: []
     2: []
   output:
     MAC: []
-    0: []
-    1: 
+    0: 
       Col: [[OY,7],[K,2]]
       Row: [[FY,11]]
+    1: []
     2: []
 
 # spatial_mapping_fixed:

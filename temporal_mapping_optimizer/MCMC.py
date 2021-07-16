@@ -119,7 +119,16 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      # Initalization of a random starting point
      random.shuffle(start_tmo)
 
-     start_energy, start_utilization, start_latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     start_tmo = [[6,2],[1,11],[6,8],[2,11],[4,7],[6,2],[3,56],[6,3],[5,3],[4,8]]
+
+     start_energy, start_utilization, start_latency, start_order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+     
+     if opt == 'latency':
+          results_queue.put([start_latency, start_utilization, start_tmo, 0, start_order, opt])
+     else:
+          results_queue.put([start_energy, start_tmo, 0, start_order, opt])
+     
+     return start_energy, start_tmo, opt
 
      if opt == "energy":
           best_value = start_energy.item()
@@ -134,11 +143,13 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
      best_tmo = start_tmo
      old_tmo = start_tmo
+     best_order = start_order
+     old_order = start_order
 
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
           
-          energy, utilization, latency = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          energy, utilization, latency, order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
           exec_time = time.time() - start_time
 
           if opt == "energy":
@@ -150,7 +161,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           elif opt == "pareto":
                best_value = energy.item()/utilization
           
-          return best_value, start_tmo, exec_time
+          return best_value, start_tmo, exec_time, order
 
      for temperature in temperature_linspace:
           i = np.random.randint(0, len(old_tmo))
@@ -158,7 +169,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
           new_tmo = tmo_swap(old_tmo, i, j)
 
-          new_energy, new_utilization, new_latency = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
+          new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
 
           if opt == "energy":
                new_value = new_energy.item()
@@ -179,6 +190,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           if(x < p):        
                old_tmo = new_tmo.copy()
                old_value = new_value
+               old_order = new_order
                
                explotation_swap_array[i, j] += 1
 
@@ -192,6 +204,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
                     best_tmo = old_tmo
                     best_value = old_value
                     best_ut = new_utilization
+                    best_order = new_order
           else:
                rejection_counter += 1
 
@@ -225,8 +238,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           plt.show()
 
      if opt == 'latency':
-          results_queue.put([best_value, best_ut, best_tmo, exec_time, opt])
+          results_queue.put([best_value, best_ut, best_tmo, exec_time, best_order, opt])
      else:
-          results_queue.put([best_value, best_tmo, exec_time, opt])
+          results_queue.put([best_value, best_tmo, exec_time, best_order, opt])
           
      return best_value, best_tmo, exec_time
