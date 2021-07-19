@@ -119,16 +119,17 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      # Initalization of a random starting point
      random.shuffle(start_tmo)
 
-     start_tmo = [[6,2],[1,11],[6,8],[2,11],[4,7],[6,2],[3,56],[6,3],[5,3],[4,8]]
+     # Experiment for 1 tmo eval
+     #start_tmo = [[6,2],[1,11],[6,8],[2,11],[4,7],[6,2],[3,56],[6,3],[5,3],[4,8]]
 
      start_energy, start_utilization, start_latency, start_order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
      
-     if opt == 'latency':
-          results_queue.put([start_latency, start_utilization, start_tmo, 0, start_order, opt])
-     else:
-          results_queue.put([start_energy, start_tmo, 0, start_order, opt])
-     
-     return start_energy, start_tmo, opt
+     # if opt == 'latency':
+     #      results_queue.put([start_latency, start_utilization, start_tmo, 0, start_order, opt])
+     # else:
+     #      results_queue.put([start_energy, start_tmo, 0, start_order, opt])
+     #
+     # return start_energy, start_tmo, opt
 
      if opt == "energy":
           best_value = start_energy.item()

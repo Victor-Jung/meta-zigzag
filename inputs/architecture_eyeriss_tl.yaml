@@ -8,7 +8,7 @@ precision:
   O_partial : 16
   O_final : 16
 
-single_mac_energy_active : 2.2
+single_mac_energy_active : 2.20
 single_mac_energy_idle : 0.00
 
 # The characteristics of the systolic flow of data in the array:

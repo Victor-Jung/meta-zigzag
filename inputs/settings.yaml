@@ -1,7 +1,7 @@
 architecture_search_multiprocessing: 1
 fixed_architecture: true
 fixed_spatial_unrolling: true
-fixed_temporal_mapping: false
+fixed_temporal_mapping: true
 im2col_enable_for_all_layers: false
 im2col_enable_for_pointwise_layers: true
 layer_filename: './NN_layers/AlexNet_full'

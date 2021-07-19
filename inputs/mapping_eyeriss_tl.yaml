@@ -1,16 +1,15 @@
 # FIXED TEMPORAL MAPPING (if doing temporal mapping search, the below user-defined temporal mapping will be ignored.)
 temporal_mapping_fixed:
   weight:
-    rf_weight: [[FX,11],[K,8]]
-    global_buffer: [[OX,56],[K,3]]
-    top_dram: [[C,3],[OY,8]]
+    rf_weight: [[K,2],[FX,11],[K,8]]
+    top_dram: [[OX,56],[K,3],[C,3],[OY,8]]
   input:
-    rf_input: [[OY,1]]
+    rf_input: [[K,2],[FX,11],[K,8]]
     global_buffer: [[OX,56],[K,3]]
     top_dram: [[C,3],[OY,8]]
   output:
     rf_psum: [[K,2]]
-    global_buffer: [[OX,56],[K,3]]
+    global_buffer: [[FX,11],[K,8],[OX,56],[K,3]]
     top_dram: [[C,3],[OY,8]]
 
 # FIXED SPATIAL MAPPING (if doing spatial mapping search, the below user-defined spatial mapping will be ignored.)
@@ -46,7 +45,6 @@ spatial_mapping_fixed:
 #     1:
 #       Col: [[OY,7],[K,2]]
 #       Row: [[FY,11]]
-#     2: []
 #   input:
 #     MAC: []
 #     0: []
