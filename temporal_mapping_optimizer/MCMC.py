@@ -109,8 +109,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      ### Hyperparameters ###
      max_temperature = 0.05
      min_temperature = max_temperature*(0.999**iter)
-     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
-     temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
+
+     # Our cooling schedule
+     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter))
 
      # Plot variables
      plot = True
@@ -143,7 +144,6 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      old_order = start_order
 
      su_max_size = 256
-     su_action_count = 0
      iter_counter = 0
 
      # Init the Su Queue with the starting SU if specified by the user
@@ -164,9 +164,6 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      best_spatial_loop_comb = spatial_loop_comb
      best_mem_scheme = mem_scheme
 
-     # This aim to avoid consecutive spatial swap, a spatial swap can be done only after at least 20 temporal swap
-     spatial_swap_counter = 0
-
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
           
@@ -184,49 +181,24 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           
           return best_value, start_tmo, exec_time, order
 
+     # Phase 1 : find the optimum with the starting Spatial Unrolling
      for temperature in temperature_linspace:
           
-          # Note : the tmo size is dynamic here depending on how many loops are in the su queue
-          su_idx = len(old_tmo)
-          
           # Uniforme random sampling in the neighborhoods
-          if iter_counter < iter or spatial_swap_counter > 0:
-               i = np.random.randint(0, len(old_tmo))
-               j = np.random.randint(0, len(old_tmo))
-          else:
-               i = np.random.randint(0, len(old_tmo))
-               j = np.random.randint(0, len(old_tmo) + 1)
+          i = np.random.randint(0, len(old_tmo))
+          j = np.random.randint(0, len(old_tmo))
 
           iter_counter += 1
-          spatial_swap_counter -= 1
+                  
+          # Apply the selected swap
+          new_su = old_su
+          new_input_settings = input_settings
+          new_mac_costs = mac_costs
+          new_spatial_loop_comb = spatial_loop_comb
+          new_mem_scheme = mem_scheme
+          new_tmo = tmo_swap(old_tmo, i, j)
 
-          if j == su_idx:
-               
-               spatial_swap_counter = 20
-               su_action_count += 1
-
-               # Put the loop at pos i into the su queue and put queue output into the tmo
-               if old_tmo[i][1] > su_max_size:
-                    continue
-               new_tmo = deepcopy(old_tmo)
-               new_su = deepcopy(old_su)
-               q_output = new_su.enqueue(new_tmo[i])
-               new_tmo.pop(i)
-               for loop in q_output:
-                    new_tmo.insert(i, loop)
-
-               new_input_settings, new_mem_scheme, new_mac_costs, new_spatial_loop_comb = update_cost_obj(new_su, input_settings, mem_scheme, layer, layer_rounded, layer_post, ii_su)
-
-          else: 
-               # Apply the selected swap
-               new_su = old_su
-               new_input_settings = input_settings
-               new_mac_costs = mac_costs
-               new_spatial_loop_comb = spatial_loop_comb
-               new_mem_scheme = mem_scheme
-               new_tmo = tmo_swap(old_tmo, i, j)
-
-          # Evaluate the quality of the new tmo + su
+          # Evaluate the quality of the new tmo
           new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
                                                                  new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
 
@@ -241,7 +213,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                new_value = new_energy.item()/new_utilization
                p = np.exp(((old_value / new_value) - 1) / temperature) 
 
-          # Sample x to make the choice and update temperature
+          # Sample x to make the choice
           x = np.random.rand() # x belongs to [0, 1]
 
           if(x < p):    
@@ -256,14 +228,10 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                mem_scheme = new_mem_scheme
                mac_costs = new_mac_costs   
 
-               if j == su_idx:
-                    spatial_swap_energy_list.append(new_energy)
-                    spatial_swap_iter_list.append(iter_counter)
-
                energy_list.append(new_energy)
                iter_list.append(iter_counter)
                
-               # We want to maximize utilization, minimize energy and pareto_score
+               # Keep the best design point in memory
                if old_value < best_value:
                     best_tmo = old_tmo
                     best_su = old_su
@@ -276,12 +244,140 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     best_value = old_value
                     best_ut = new_utilization
 
+
+     # Phase 2 : evaluate the quality of a spatial swap by looking at the pref improvement after few temporal swap
+
+     temporal_iter = 50
+     spatial_iter = int(iter/temporal_iter)
+     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, temporal_iter*spatial_iter))
+
+     print(old_value)
+
+     for spatial_swap_id in range(spatial_iter):
+
+          # Note : the tmo size is dynamic here depending on how many loops are in the su queue
+          su_idx = len(old_tmo)
+
+          # Uniform sample of the loop to put into spatial queue
+          i = np.random.randint(0, len(old_tmo))
+
+          # Check the size
+          if old_tmo[i][1] > su_max_size:
+               continue
+          
+          # Execute the spatial swap
+          new_tmo = deepcopy(old_tmo)
+          new_su = deepcopy(old_su)
+          q_output = new_su.enqueue(new_tmo[i])
+          new_tmo.pop(i)
+          for loop in q_output:
+               new_tmo.insert(i, loop)
+
+          # Update all ZigZag objects for the cost model
+          new_input_settings, new_mem_scheme, new_mac_costs, new_spatial_loop_comb = update_cost_obj(new_su, input_settings, mem_scheme, layer, layer_rounded, layer_post, ii_su)
+
+          temp_tmo = new_tmo
+          temp_su = new_su
+          temp_value = old_value
+          temp_order = old_order
+
+          best_temp_tmo = new_tmo
+          best_temp_su = new_su
+          best_temp_value = old_value
+          best_temp_order = old_order
+
+          for temporal_swap_id in range(temporal_iter):
+
+               # Uniforme random sampling in the neighborhoods
+               i = np.random.randint(0, len(temp_tmo))
+               j = np.random.randint(0, len(temp_tmo))
+
+               iter_counter += 1
+                    
+               # Apply the temporal swap
+               new_tmo = tmo_swap(temp_tmo, i, j)
+
+               # Evaluate the quality of the new tmo
+               new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
+                                                                      new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
+
+               # Compute the acceptance probability p of the new tmo
+               temperature = temperature_linspace[spatial_swap_id*temporal_iter + temporal_swap_id]
+               if opt == "energy":
+                    new_value = new_energy.item()
+                    p = np.exp(((temp_value / new_value) - 1) / temperature)
+               elif opt == "latency":
+                    new_value = new_latency
+                    p = np.exp(((temp_value / new_value) - 1) / temperature)
+               elif opt == "pareto":
+                    new_value = new_energy.item()/new_utilization
+                    p = np.exp(((temp_value / new_value) - 1) / temperature)
+
+               # Sample x to make the choice
+               x = np.random.rand() # x belongs to [0, 1]
+               
+               if(x < p):    
+                    # Move on the next point    
+                    temp_tmo = deepcopy(new_tmo)
+                    temp_su = deepcopy(new_su)
+                    temp_value = new_value
+                    temp_order = new_order
+
+                    energy_list.append(new_energy)
+                    iter_list.append(iter_counter)
+                    
+                    # Keep the best design point found during this sub-run in memory
+                    if temp_value < best_temp_value:
+                         best_temp_tmo = temp_tmo
+                         best_temp_su = temp_su
+                         best_temp_order = temp_order
+                         best_temp_value = temp_value
+     
+
+          # Compute the acceptance probability p of the best tmo with the new su
+          temperature = temperature_linspace[spatial_swap_id*temporal_iter + temporal_swap_id]
+          p = np.exp(((old_value / best_temp_value) - 1) / temperature)
+          print(old_value, " : ", best_temp_value)
+     
+          # Sample x to make the choice
+          x = np.random.rand() # x belongs to [0, 1]
+
+          if(x < p):    
+               # Accept the new SU    
+               old_tmo = deepcopy(best_temp_tmo)
+               old_su = deepcopy(best_temp_su)
+               old_value = best_temp_value
+               old_order = best_temp_order
+
+               input_settings = new_input_settings
+               spatial_loop_comb = new_spatial_loop_comb
+               mem_scheme = new_mem_scheme
+               mac_costs = new_mac_costs   
+
+               energy_list.append(best_temp_value)
+               iter_list.append(iter_counter)
+               
+               # Keep the best design point in memory
+               if old_value < best_value:
+                    best_tmo = old_tmo
+                    best_su = old_su
+                    best_order = old_order
+
+                    best_input_settings = input_settings
+                    best_spatial_loop_comb = spatial_loop_comb
+                    best_mem_scheme = mem_scheme
+                    best_mac_costs = mac_costs
+                    best_value = old_value
+                    best_ut = new_utilization
+          
+
+
      end_time = time.time()
      exec_time = end_time - start_time
      
      if plot:
           plt.figure()
-          plt.title("Energy during mapping optimization")
+          plt.title("Energy during mapping optimization, objective : " + opt)
           plt.xlabel("Iteration")
           plt.ylabel(opt)
           plt.scatter(spatial_swap_iter_list, spatial_swap_energy_list, c="red", linewidths=1)
