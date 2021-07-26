@@ -108,19 +108,16 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
      ### Hyperparameters ###
      max_temperature = 0.05
-     min_temperature = max_temperature*(0.999**2000)
+     min_temperature = max_temperature*(0.999**iter)
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
      temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
 
-     # Plot lists
-     accepted_p_list = []
-     accepted_value_list = []
-     value_list = []
-     explotation_counter = 0
-     exploration_counter = 0
-     rejection_counter = 0
-     exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
-     explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
+     # Plot variables
+     plot = True
+     energy_list = []
+     iter_list = []
+     spatial_swap_energy_list = []
+     spatial_swap_iter_list = []
 
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
@@ -167,6 +164,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      best_spatial_loop_comb = spatial_loop_comb
      best_mem_scheme = mem_scheme
 
+     # This aim to avoid consecutive spatial swap, a spatial swap can be done only after at least 20 temporal swap
+     spatial_swap_counter = 0
+
      # Check if the starting tmo is empty (means that all loops were spatially unrolled and we evaluate the cost model as such)
      if start_tmo == []:
           
@@ -190,7 +190,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           su_idx = len(old_tmo)
           
           # Uniforme random sampling in the neighborhoods
-          if iter_counter < iter:
+          if iter_counter < iter or spatial_swap_counter > 0:
                i = np.random.randint(0, len(old_tmo))
                j = np.random.randint(0, len(old_tmo))
           else:
@@ -198,9 +198,11 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                j = np.random.randint(0, len(old_tmo) + 1)
 
           iter_counter += 1
+          spatial_swap_counter -= 1
 
           if j == su_idx:
                
+               spatial_swap_counter = 20
                su_action_count += 1
 
                # Put the loop at pos i into the su queue and put queue output into the tmo
@@ -254,10 +256,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                mem_scheme = new_mem_scheme
                mac_costs = new_mac_costs   
 
-               if p >= 1:
-                    explotation_counter += 1
-               else:
-                    exploration_counter += 1
+               if j == su_idx:
+                    spatial_swap_energy_list.append(new_energy)
+                    spatial_swap_iter_list.append(iter_counter)
+
+               energy_list.append(new_energy)
+               iter_list.append(iter_counter)
                
                # We want to maximize utilization, minimize energy and pareto_score
                if old_value < best_value:
@@ -271,40 +275,18 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     best_mac_costs = mac_costs
                     best_value = old_value
                     best_ut = new_utilization
-          else:
-               rejection_counter += 1
-
-          value_list.append(new_utilization)
 
      end_time = time.time()
      exec_time = end_time - start_time
      
      if plot:
-          plt.figure(1)
-          plt.hist(value_list)
-          plt.show()
-          '''
-          plt.figure(1)
-          plt.title('Utilization of accepted state evolution during the run')
+          plt.figure()
+          plt.title("Energy during mapping optimization")
           plt.xlabel("Iteration")
-          plt.ylabel("Utilization")
-          plt.plot([*range(len(accepted_value_list))], accepted_value_list)
-          plt.figure(2)
-          plt.title('Alpha evolution during the run')
-          plt.xlabel("Temporal Mapping Size")
-          plt.ylabel("Alpha")
-          plt.plot([*range(len(accepted_p_list))], accepted_p_list, "o")
-          plt.figure(3)
-          plt.title('Heatmap of Explotation Swap(i, j)')
-          plt.xlabel("i")
-          plt.ylabel("j")
-          plt.imshow(explotation_swap_array, cmap='hot', interpolation='nearest')
-          plt.figure(4)
-          plt.title('Heatmap of Exploration Swap(i, j)')
-          plt.xlabel("i")
-          plt.ylabel("j")
-          plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
-          plt.show()'''
+          plt.ylabel(opt)
+          plt.scatter(spatial_swap_iter_list, spatial_swap_energy_list, c="red", linewidths=1)
+          plt.plot(iter_list, energy_list)
+          plt.show()
 
      if opt == 'latency':
           results_queue.put([best_value, best_ut, best_tmo, best_su, exec_time, best_order, opt])
