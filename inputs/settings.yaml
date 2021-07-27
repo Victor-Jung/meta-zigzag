@@ -4,11 +4,11 @@ fixed_spatial_unrolling: false
 fixed_temporal_mapping: false
 im2col_enable_for_all_layers: false
 im2col_enable_for_pointwise_layers: true
-layer_filename: ./NN_layers/AlexNet
-layer_indices: [3]
+layer_filename: ./NN_layers/ResNet18
+layer_indices: ALL
 layer_multiprocessing: 1
 max_nb_lpf_layer: 7
-result_filename: AlexNet_suopt_v2
+result_filename: ResNet18_suopt_v3
 result_path: ./results_test
 result_print_mode: complete
 result_print_type: xml
