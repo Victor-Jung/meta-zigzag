@@ -114,7 +114,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter))
 
      # Plot variables
-     plot = True
+     plot = False
      energy_list = []
      iter_list = []
      spatial_swap_energy_list = []
@@ -181,7 +181,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           
           return best_value, start_tmo, exec_time, order
 
-     # Phase 1 : find the optimum with the starting Spatial Unrolling
+     # Phase 1 : find the optimum temporal mapping with the starting Spatial Unrolling
      for temperature in temperature_linspace:
           
           # Uniforme random sampling in the neighborhoods
@@ -246,12 +246,9 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
 
 
      # Phase 2 : evaluate the quality of a spatial swap by looking at the pref improvement after few temporal swap
-
-     temporal_iter = 50
+     temporal_iter = 5
      spatial_iter = int(iter/temporal_iter)
      temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, temporal_iter*spatial_iter))
-
-     print(old_value)
 
      for spatial_swap_id in range(spatial_iter):
 
@@ -276,15 +273,24 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           # Update all ZigZag objects for the cost model
           new_input_settings, new_mem_scheme, new_mac_costs, new_spatial_loop_comb = update_cost_obj(new_su, input_settings, mem_scheme, layer, layer_rounded, layer_post, ii_su)
 
+          # And evaluate the new design point
+          new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, new_input_settings, new_spatial_loop_comb, 
+                                                                 new_mem_scheme, [im2col_layer, layer_rounded], new_mac_costs)
+
           temp_tmo = new_tmo
           temp_su = new_su
-          temp_value = old_value
-          temp_order = old_order
+          temp_order = new_order
 
-          best_temp_tmo = new_tmo
-          best_temp_su = new_su
-          best_temp_value = old_value
-          best_temp_order = old_order
+          best_temp_tmo = old_tmo
+          best_temp_su = old_su
+          best_temp_order = new_order
+
+          if opt == "energy":
+               temp_value = new_energy.item()
+               best_temp_value = new_energy.item()
+          elif opt == "latency":
+               temp_value = new_latency
+               best_temp_value = new_latency
 
           for temporal_swap_id in range(temporal_iter):
 
@@ -308,7 +314,10 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     p = np.exp(((temp_value / new_value) - 1) / temperature)
                elif opt == "latency":
                     new_value = new_latency
-                    p = np.exp(((temp_value / new_value) - 1) / temperature)
+                    if temp_value/new_value > 10: # To avoid overflow of exp
+                         p = 1
+                    else:
+                         p = np.exp(((temp_value / new_value) - 1) / temperature)
                elif opt == "pareto":
                     new_value = new_energy.item()/new_utilization
                     p = np.exp(((temp_value / new_value) - 1) / temperature)
@@ -323,8 +332,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     temp_value = new_value
                     temp_order = new_order
 
-                    energy_list.append(new_energy)
-                    iter_list.append(iter_counter)
+                    #energy_list.append(new_energy)
+                    #iter_list.append(iter_counter)
                     
                     # Keep the best design point found during this sub-run in memory
                     if temp_value < best_temp_value:
@@ -337,8 +346,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           # Compute the acceptance probability p of the best tmo with the new su
           temperature = temperature_linspace[spatial_swap_id*temporal_iter + temporal_swap_id]
           p = np.exp(((old_value / best_temp_value) - 1) / temperature)
-          print(old_value, " : ", best_temp_value)
-     
+
           # Sample x to make the choice
           x = np.random.rand() # x belongs to [0, 1]
 
@@ -369,14 +377,12 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
                     best_mac_costs = mac_costs
                     best_value = old_value
                     best_ut = new_utilization
-          
-
 
      end_time = time.time()
      exec_time = end_time - start_time
      
-     if plot:
-          plt.figure()
+     if plot and opt == "energy":
+          plt.figure(clear=True)
           plt.title("Energy during mapping optimization, objective : " + opt)
           plt.xlabel("Iteration")
           plt.ylabel(opt)
