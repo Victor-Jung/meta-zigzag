@@ -68,25 +68,25 @@ def merge_su_loop(su):
 
 nn_name = sys.argv[1] #"NASNet_small" "ResNet18" MobileNet_v3_small" "Inception_v3" 
 plot_path = "temporal_mapping_optimizer/"
+nn_depth = 22
 
-result_suopt_path = "results_benchmark/" + nn_name + "_suopt/"
-result_suopt2_path = "results_benchmark/" + nn_name + "_suopt_v2/"
-result_suopt3_path = "results_benchmark/" + nn_name + "_suopt_v3/"
+result_suopt_path = "results_benchmark/" + nn_name + "_suopt_v1/" # Most basic, always allow spatial swap
+result_suopt2_path = "results_benchmark/" + nn_name + "_suopt_v2/" # Allow spatial swap only after optimizaing the temporal mapping
+result_suopt3_path = "results_benchmark/" + nn_name + "_suopt_v3/" # Optimize temporal mapping, then each time you consider a spatial swap, run few temporal swap
 result_exh_path = "results_benchmark/" + nn_name + "_exh/"
 result_hint_path = "results_benchmark/" + nn_name + "_KC/"
 
 # List all energy per layer for all SU
 exh_energy = get_perf_dict_list(result_exh_path)
 hint_energy = get_perf_dict_list(result_hint_path)
-suopt_energy = get_perf_dict_list(result_suopt_path)
+suopt1_energy = get_perf_dict_list(result_suopt_path)
 suopt2_energy = get_perf_dict_list(result_suopt2_path)
 suopt3_energy = get_perf_dict_list(result_suopt3_path)
 
 # Then extract the best energy found by suopt and exh
-nn_depth = 8
 best_energy_exh, best_su_exh = extract_data(exh_energy, nn_depth)
 best_energy_hint, best_su_hint = extract_data(hint_energy, nn_depth)
-best_energy_suopt, best_su_suopt = extract_data(suopt_energy, nn_depth)
+best_energy_suopt, best_su_suopt = extract_data(suopt1_energy, nn_depth)
 best_energy_suopt2, best_su_suopt2 = extract_data(suopt2_energy, nn_depth)
 best_energy_suopt3, best_su_suopt3 = extract_data(suopt3_energy, nn_depth)
 
@@ -101,6 +101,12 @@ for i in range(len(best_energy_exh)):
         best_energy_exh[i] = 0
         best_energy_suopt[i] = 0
         best_energy_hint[i] = 0
+    if best_energy_suopt[i] == float('inf'):
+        best_energy_suopt[i] = 0
+    if best_energy_suopt2[i] == float('inf'):
+        best_energy_suopt2[i] = 0
+    if best_energy_suopt3[i] == float('inf'):
+        best_energy_suopt3[i] = 0
 
 print("Total Best Energy Exhaustive :", np.sum(best_energy_exh))
 print("Total Best Energy Hint :", np.sum(best_energy_hint))
@@ -117,11 +123,11 @@ print("Total Best Energy SUopt v3 :", np.sum(best_energy_suopt3))
 
 plt.title(nn_name + "Spatial Unrolling Benchmark")
 
-w = 0.20
+w = 0.18
 
 plt.bar([*np.arange(0, nn_depth, 1)], best_energy_hint, label="hint driven K/C", width=w)
 plt.bar([*np.arange(w, nn_depth, 1)], best_energy_exh, label="exhausitive", width=w)
-plt.bar([*np.arange(w*2, nn_depth, 1)], best_energy_suopt, label="SUopt", width=w)
+plt.bar([*np.arange(w*2, nn_depth, 1)], best_energy_suopt, label="SUopt v1", width=w)
 plt.bar([*np.arange(w*3, nn_depth, 1)], best_energy_suopt2, label="SUopt v2", width=w)
 plt.bar([*np.arange(w*4, nn_depth, 1)], best_energy_suopt3, label="SUopt v3", width=w)
 
@@ -133,7 +139,7 @@ plt.show()
 plt.savefig("./su_plot_" + nn_name + ".png")
 
 # su_counter = 0
-# suopt_energy_list = np.zeros((5,nn_depth))
+# suopt1_energy_list = np.zeros((5,nn_depth))
 # suopt_su_list = []
 # for i in range(5):
 #     new = []
@@ -141,9 +147,9 @@ plt.savefig("./su_plot_" + nn_name + ".png")
 #         new.append(0)
 #     suopt_su_list.append(new)
 
-# for su_dict in suopt_energy:
+# for su_dict in suopt1_energy:
 #     for layer_idx in su_dict.keys():
-#         suopt_energy_list[su_counter][layer_idx - 1] = su_dict[layer_idx]["en"]
+#         suopt1_energy_list[su_counter][layer_idx - 1] = su_dict[layer_idx]["en"]
 #         suopt_su_list[su_counter][layer_idx - 1] = su_dict[layer_idx]["su"]
 #     su_counter += 1
 
@@ -171,11 +177,11 @@ plt.savefig("./su_plot_" + nn_name + ".png")
 
 # plt.bar([*np.arange(w*0, nn_depth, 1)], best_energy_hint, label="hint driven K/C", width=w)
 # plt.bar([*np.arange(w*1, nn_depth, 1)], best_energy_exh, label="exhausitive", width=w)
-# plt.bar([*np.arange(w*2, nn_depth, 1)], suopt_energy_list[0], label="su 1", width=w)
-# plt.bar([*np.arange(w*3, nn_depth, 1)], suopt_energy_list[1], label="su 2", width=w)
-# plt.bar([*np.arange(w*4, nn_depth, 1)], suopt_energy_list[2], label="su 3", width=w)
-# plt.bar([*np.arange(w*5, nn_depth, 1)], suopt_energy_list[3], label="su 4", width=w)
-# plt.bar([*np.arange(w*6, nn_depth, 1)], suopt_energy_list[4], label="su 5", width=w)
+# plt.bar([*np.arange(w*2, nn_depth, 1)], suopt1_energy_list[0], label="su 1", width=w)
+# plt.bar([*np.arange(w*3, nn_depth, 1)], suopt1_energy_list[1], label="su 2", width=w)
+# plt.bar([*np.arange(w*4, nn_depth, 1)], suopt1_energy_list[2], label="su 3", width=w)
+# plt.bar([*np.arange(w*5, nn_depth, 1)], suopt1_energy_list[3], label="su 4", width=w)
+# plt.bar([*np.arange(w*6, nn_depth, 1)], suopt1_energy_list[4], label="su 5", width=w)
 
 
 # plt.legend(loc="upper right")

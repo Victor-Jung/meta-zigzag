@@ -109,8 +109,8 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
      ### Hyperparameters ###
      max_temperature = 0.05
      min_temperature = max_temperature*(0.999**iter)
-     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter)) # Our cooling schedule
-     temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
+     temperature_linspace = np.flip(np.linspace(min_temperature, max_temperature, iter*2)) # Our cooling schedule
+     #temperature_linspace = np.concatenate((temperature_linspace, temperature_linspace))
 
      # Plot variables
      plot = True
@@ -192,7 +192,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded,
           # Uniforme random sampling in the neighborhoods
           if iter_counter < iter or spatial_swap_counter > 0:
                i = np.random.randint(0, len(old_tmo))
-               j = np.random.randint(0, len(old_tmo))
+               j = np.random.randint(0, len(old_tmo) + 1)
           else:
                i = np.random.randint(0, len(old_tmo))
                j = np.random.randint(0, len(old_tmo) + 1)

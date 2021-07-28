@@ -670,11 +670,11 @@ class Loop(object):
         
         For 'O', such rule doesn't hold since output need to be firstly written and then read.
         '''
-        level0 = 0
-        read = 0
-        for operand in ['W', 'I']:
-            mem_access_total_element[operand][level0][read] = \
-                mem_access_total_element[operand][level0][read] / temporal_loop.MAC_level_stationary[operand]
+        # level0 = 0
+        # read = 0
+        # for operand in ['W', 'I']:
+        #     mem_access_total_element[operand][level0][read] = \
+        #         mem_access_total_element[operand][level0][read] / temporal_loop.MAC_level_stationary[operand]
 
         '''input memory FIFO checking'''
         unrolled_loops = list(zip(*spatial_loop.spatial_loop_list))[0]
