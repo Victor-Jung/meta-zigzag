@@ -1,64 +1,146 @@
-# FIXED TEMPORAL MAPPING (if doing temporal mapping search, the below user-defined temporal mapping will be ignored.)
-temporal_mapping_fixed:
-  weight:
-    rf_weight: [[K,2],[FX,11],[K,8]]
-    top_dram: [[OX,56],[K,3],[C,3],[OY,8]]
-  input:
-    rf_input: [[K,2],[FX,11],[K,8]]
-    global_buffer: [[OX,56],[K,3]]
-    top_dram: [[C,3],[OY,8]]
-  output:
-    rf_psum: [[K,2]]
-    global_buffer: [[FX,11],[K,8],[OX,56],[K,3]]
-    top_dram: [[C,3],[OY,8]]
-
-# FIXED SPATIAL MAPPING (if doing spatial mapping search, the below user-defined spatial mapping will be ignored.)
-# Numbers 0, 1, (2) below indicate different memory levels.
-# In this example, for weight, there are MAC level, the 0th memory level (rf_weight), and the 1st memory level (top_sram),
-# the spatial unrolling happens at 0th memory level (rf_weight) and below (MAC level).
-spatial_mapping_fixed:
-  weight:
-    MAC: []
-    0: 
-      Col: [[OY,7],[K,2]]
-      Row: [[FY,11]]
-    1: []
-  input:
-    MAC: []
-    0: 
-      Col: [[OY,7],[K,2]]
-      Row: [[FY,11]]
-    1: []
-    2: []
-  output:
-    MAC: []
-    0: 
-      Col: [[OY,7],[K,2]]
-      Row: [[FY,11]]
-    1: []
-    2: []
+### AlexNet Layer 1 ###
+# temporal_mapping_fixed:
+#   weight:
+#     rf_weight: [[K,2],[FX,11],[K,8]]
+#     top_dram: [[OX,56],[K,3],[C,3],[OY,8]]
+#   input:
+#     rf_input: [[K,2],[FX,11],[K,8]]
+#     global_buffer: [[OX,56],[K,3]]
+#     top_dram: [[C,3],[OY,8]]
+#   output:
+#     rf_psum: [[K,2]]
+#     global_buffer: [[FX,11],[K,8],[OX,56],[K,3]]
+#     top_dram: [[C,3],[OY,8]]
 
 # spatial_mapping_fixed:
 #   weight:
 #     MAC: []
-#     0: []
-#     1:
+#     0: 
 #       Col: [[OY,7],[K,2]]
 #       Row: [[FY,11]]
+#     1: []
 #   input:
 #     MAC: []
-#     0: []
-#     1:
+#     0: 
 #       Col: [[OY,7],[K,2]]
 #       Row: [[FY,11]]
+#     1: []
 #     2: []
 #   output:
 #     MAC: []
-#     0: []
-#     1:
+#     0: 
 #       Col: [[OY,7],[K,2]]
 #       Row: [[FY,11]]
+#     1: []
 #     2: []
+
+### AlexNet Layer 2 ###
+# temporal_mapping_fixed:
+#   weight:
+#     rf_weight: [[C,2],[FX,5],[K,2]]
+#     top_dram: [[K,16],[C,2],[OX,26],[C,12],[K,8]]
+#   input:
+#     rf_input: [[C,2],[FX,5],[K,2],[K,16]]
+#     global_buffer: [[C,2]]
+#     top_dram: [[OX,26],[C,12],[K,8]]
+#   output:
+#     rf_psum: [[C,2],[FX,5]]
+#     global_buffer: [[K,2],[K,16],[C,2]]
+#     top_dram: [[OX,26],[C,12],[K,8]]
+
+# spatial_mapping_fixed:
+#   weight:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[FY,5],[OY,2]]
+#     1: []
+#   input:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[FY,5],[OY,2]]
+#     1: []
+#     2: []
+#   output:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[FY,5],[OY,2]]
+#     1: []
+#     2: []
+
+### AlexNet Layer 3 ###
+# temporal_mapping_fixed:
+#   weight:
+#     rf_weight: [[C,2],[FX,3],[C,2],[K,16]]
+#     top_dram: [[OX,13],[K,3],[C,64],[K,2]]
+#   input:
+#     rf_input: [[C,2],[FX,3],[C,2],[K,16]]
+#     global_buffer: [[OX,13],[K,3]]
+#     top_dram: [[C,64],[K,2]]
+#   output:
+#     rf_psum: [[C,2],[FX,3]]
+#     global_buffer: [[C,2],[K,16],[OX,13],[K,3]]
+#     top_dram: [[C,64],[K,2]]
+
+# spatial_mapping_fixed:
+#   weight:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[K,4],[FY,3]]
+#     1: []
+#   input:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[K,4],[FY,3]]
+#     1: []
+#     2: []
+#   output:
+#     MAC: []
+#     0: 
+#       Col: [[OY,13]]
+#       Row: [[K,4],[FY,3]]
+#     1: []
+#     2: []
+
+### AlexNet Layer 4 ###
+temporal_mapping_fixed:
+  weight:
+    rf_weight: [[C,4],[K,2],[FX,3],[K,8]]
+    top_dram: [[OX,13],[K,6],[C,24],[K,2]]
+  input:
+    rf_input: [[C,4],[K,2],[FX,3],[K,8]]
+    global_buffer: [[OX,13],[K,6]]
+    top_dram: [[C,24],[K,2]]
+  output:
+    rf_psum: [[C,4],[K,2]]
+    global_buffer: [[FX,3],[K,8],[OX,13],[K,6]]
+    top_dram: [[C,24],[K,2]]
+
+spatial_mapping_fixed:
+  weight:
+    MAC: []
+    0: 
+      Col: [[OY,13]]
+      Row: [[K,2],[C,2],[FY,3]]
+    1: []
+  input:
+    MAC: []
+    0: 
+      Col: [[OY,13]]
+      Row: [[K,2],[C,2],[FY,3]]
+    1: []
+    2: []
+  output:
+    MAC: []
+    0: 
+      Col: [[OY,13]]
+      Row: [[K,2],[C,2],[FY,3]]
+    1: []
+    2: []
 
 # SPATIAL MAPPING HINT LIST
 # used as hint if 'hint_driven' spatial_unrolling_search_method is chosen in the setting file.

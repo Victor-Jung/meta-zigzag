@@ -2,29 +2,29 @@
 
 weight_spad :
   size_bit: 3072
-  mem_bw: [32]
+  mem_bw: [16]
   area: [3634.68]
   cost:
-    read_word: [1.59]
-    write_word: [1.59]
+    read_word: [1.586]
+    write_word: [1.586]
   mem_type: dual_port_single_buffered
 
 input_spad :
   size_bit: 192
-  mem_bw: [32]
+  mem_bw: [16]
   area: [379.68]
   cost:
-    read_word: [0.24]
-    write_word: [0.24]
+    read_word: [0.237]
+    write_word: [0.237]
   mem_type: dual_port_single_buffered
 
 psum_spad :
   size_bit: 256
-  mem_bw: [32]
+  mem_bw: [16]
   area: [414.68]
   cost:
-    read_word: [0.25]
-    write_word: [0.25]
+    read_word: [0.251]
+    write_word: [0.251]
   mem_type: dual_port_single_buffered
 
 dummy_buffer :
@@ -38,7 +38,7 @@ dummy_buffer :
 
 shared_glb :
   size_bit: 1048576
-  mem_bw: [256]
+  mem_bw: [64]
   area: [1162549.00]
   cost:
     read_word: [75.22]
@@ -47,7 +47,7 @@ shared_glb :
 
 top_dram :
   size_bit: 100000000000
-  mem_bw: [10000]
+  mem_bw: [64]
   area: [0]
   cost:
     read_word: [512.00]

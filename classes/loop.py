@@ -555,8 +555,8 @@ class Loop(object):
                 mem_read_H.append(0)
                 mem_write_H.append(0)
             else:
-                mem_read_H.append(mem_write_L[level + 1])
-                mem_write_H.append(mem_read_L[level + 1])
+                mem_read_H.append(mem_write_L[level + 1] * spatial_loop.unit_duplicate['O'][level + 1])
+                mem_write_H.append(mem_read_L[level + 1] * spatial_loop.unit_duplicate['O'][level + 1])
 
             mem_access_per_element['O'].append(
                 ((mem_read_L[level], mem_write_L[level]), (mem_read_H[level], mem_write_H[level])))
@@ -670,11 +670,11 @@ class Loop(object):
         
         For 'O', such rule doesn't hold since output need to be firstly written and then read.
         '''
-        level0 = 0
-        read = 0
-        for operand in ['W', 'I']:
-            mem_access_total_element[operand][level0][read] = \
-                mem_access_total_element[operand][level0][read] / temporal_loop.MAC_level_stationary[operand]
+        # level0 = 0
+        # read = 0
+        # for operand in ['W', 'I']:
+        #     mem_access_total_element[operand][level0][read] = \
+        #         mem_access_total_element[operand][level0][read] / temporal_loop.MAC_level_stationary[operand]
 
         '''input memory FIFO checking'''
         unrolled_loops = list(zip(*spatial_loop.spatial_loop_list))[0]
