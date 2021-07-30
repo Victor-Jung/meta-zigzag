@@ -1,5 +1,7 @@
 from copy import deepcopy
 from numpy import prod
+from functools import reduce
+
 
 class Order(object):
     """
@@ -8,14 +10,15 @@ class Order(object):
     As this happens sequentially by passing through each MemoryNode at every memory level,
     this class keeps track of what LPFs have been assigned/have not been assigned for each operand.
     """
+
     def __init__(self, order, spatial_loop, layer, input_settings, n_mem_levels):
 
         # Relevant loop type numbers for each operand
-        relevant_loop_type_numbers = {'W': [1,2,5,6], 'I': [5,7], 'O': [3,4,6,7]}
-        pr_loop_type_numbers_I = [1,2,3,4] # 1 = FX, 2 = FY, 3 = OX, 4 = OY
+        relevant_loop_type_numbers = {'W': [1, 2, 5, 6], 'I': [5, 7], 'O': [3, 4, 6, 7]}
+        pr_loop_type_numbers_I = [1, 2, 3, 4]  # 1 = FX, 2 = FY, 3 = OX, 4 = OY
         self.pr_loop_type_numbers_I = pr_loop_type_numbers_I
         self.relevant_loop_type_numbers = relevant_loop_type_numbers
-        
+
         self.order_raw = order
         self.length = len(order)
         self.precision = input_settings.precision
@@ -28,7 +31,7 @@ class Order(object):
         ### Compute the starting (i.e. without taking into account spatial unrolling at memory levels)
         ### required size/total cycles/number of memory accesses as we assign LPFs from the order
         ## WEIGHT
-        size_W = [spatial_loop.su_relevant_size_dict['W'][0]] # total relevant su @ MAC level
+        size_W = [spatial_loop.su_relevant_size_dict['W'][0]]  # total relevant su @ MAC level
         access_W = [total_MAC_op / spatial_loop.su_irrelevant_size_dict['W'][0]]
         total_cycles_W = [1]
         irrelevant_loop_W = [1]
@@ -67,12 +70,12 @@ class Order(object):
         self.total_cycles_O = total_cycles_O
         self.irrelevant_loop_O = irrelevant_loop_O
         # Get index of last ir loop (needed for O precision)
-        ir_loop_type_numbers_O = [1,2,5]
+        ir_loop_type_numbers_O = [1, 2, 5]
         order_ir_O = [x[0] in ir_loop_type_numbers_O for x in order]
         try:
             self.last_ir_index_O = len(order_ir_O) - 1 - order_ir_O[::-1].index(True)
         except:
-            self.last_ir_index_O = len(order_ir_O) + 1 # no O ir loop in order
+            self.last_ir_index_O = len(order_ir_O) + 1  # no O ir loop in order
         self.lpfs_seen_O = 0
         self.all_ir_seen_O = False
 
@@ -83,15 +86,15 @@ class Order(object):
         # At this point, we don't know after which LPF this su will occur,
         # so the only thing we calculate here is for every LPF the total pr and r below (including that LPF).
         su_pr_size_dict_input = spatial_loop.su_pr_size_dict_input
-        pr_size_dict_I = {  1: [su_pr_size_dict_input[1][0]], # 1 = FX; Init with su @ MAC level
-                            2: [su_pr_size_dict_input[2][0]], # 2 = FY; Init with su @ MAC level
-                            3: [su_pr_size_dict_input[3][0]], # 3 = OX; Init with su @ MAC level
-                            4: [su_pr_size_dict_input[4][0]]} # 4 = OY; Init with su @ MAC level
-        relevant_size_I = [spatial_loop.su_relevant_size_dict['I'][0]] # Init with su @ MAC level
+        pr_size_dict_I = {1: [su_pr_size_dict_input[1][0]],  # 1 = FX; Init with su @ MAC level
+                          2: [su_pr_size_dict_input[2][0]],  # 2 = FY; Init with su @ MAC level
+                          3: [su_pr_size_dict_input[3][0]],  # 3 = OX; Init with su @ MAC level
+                          4: [su_pr_size_dict_input[4][0]]}  # 4 = OY; Init with su @ MAC level
+        relevant_size_I = [spatial_loop.su_relevant_size_dict['I'][0]]  # Init with su @ MAC level
         total_cycles_I = [1]
         MAC_op_I = [prod([loop[1] for loop in spatial_loop.spatial_loop_list])]
         for (loop_type_number, dimension) in order:
-            pr_factors = [0, 1, 1, 1, 1] # 0 inserted to match index with pr_loop_type_numbers
+            pr_factors = [0, 1, 1, 1, 1]  # 0 inserted to match index with pr_loop_type_numbers
             if loop_type_number in pr_loop_type_numbers_I:
                 pr_factors[loop_type_number] *= dimension
             pr_size_dict_I[1].append(pr_size_dict_I[1][-1] * pr_factors[1])
@@ -109,15 +112,10 @@ class Order(object):
         self.total_cycles_I = total_cycles_I
         self.MAC_op_I = MAC_op_I
         # self.pr_seen_below = {1: False, 2: False, 3: False, 4: False}
-        self.pr_seen_below = {  1: pr_size_dict_I[1][0] != 1, # If there is FX su @ MAC level, this will be True
-                                2: pr_size_dict_I[2][0] != 1, # If there is FY su @ MAC level, this will be True
-                                3: pr_size_dict_I[3][0] != 1, # If there is OX su @ MAC level, this will be True
-                                4: pr_size_dict_I[4][0] != 1} # If there is OY su @ MAC level, this will be True
-        # if self.order_raw == ((1, 3), (2, 3), (5, 3), (3, 2), (3, 4), (4, 2), (4, 56)):
-        #     print("FOUND")
-        #     print(su_pr_size_dict_input)
-        #     print(pr_size_dict_I)
-        #     print(self.pr_seen_below)
+        self.pr_seen_below = {1: pr_size_dict_I[1][0] != 1,  # If there is FX su @ MAC level, this will be True
+                              2: pr_size_dict_I[2][0] != 1,  # If there is FY su @ MAC level, this will be True
+                              3: pr_size_dict_I[3][0] != 1,  # If there is OX su @ MAC level, this will be True
+                              4: pr_size_dict_I[4][0] != 1}  # If there is OY su @ MAC level, this will be True
         self.fifo_partner_loop_type_number = {1: 3, 2: 4, 3: 1, 4: 2}
         self.sx = layer.SX
         self.sy = layer.SY
@@ -142,7 +140,6 @@ class Order(object):
         ### for input, this will hold the compounded input data reuse
         self.irrelevant_loop = {'W': [1], 'I': [spatial_loop.unit_duplicate['I'][0]], 'O': [1]}
 
-
     def allocate_memory(self, node, level):
         '''
         Function to (partially) allocate this order for the given MemoryNode.
@@ -160,23 +157,22 @@ class Order(object):
             self.allocate_memory_I(node, level)
         elif operands == ('O',):
             self.allocate_memory_O(node, level)
-        elif all(op in ('W','I') for op in operands):
+        elif all(op in ('W', 'I') for op in operands):
             self.allocate_memory_WI(node, level)
-        elif all(op in ('I','O') for op in operands):
+        elif all(op in ('I', 'O') for op in operands):
             self.allocate_memory_IO(node, level)
-        elif all(op in ('W','O') for op in operands):
+        elif all(op in ('W', 'O') for op in operands):
             self.allocate_memory_WO(node, level)
-        elif all(op in ('W','I','O') for op in operands):
+        elif all(op in ('W', 'I', 'O') for op in operands):
             self.allocate_memory_WIO(node, level)
         else:
             raise ValueError("Operands = {} for Memory Node {}".format(operands, node.memory_level["name"]))
-
 
     def allocate_memory_W(self, node, level):
         '''
         Allocate LPFs to this W memory node.
         '''
-        
+
         # Max size (in words) of this node
         max_size = node.memory_level["size_bit"] / self.precision['W']
 
@@ -189,7 +185,7 @@ class Order(object):
         # Update the remaining LPFs/size/access to exclude all allocated ones
         # except for the last element of size/access:
         # which will represent 'size/access if adding no new LPFs' for next memory level
-        self.allocated_order_W.append(self.remaining_lpf_W[1:lpf_index]) # start at 1 to exclude None
+        self.allocated_order_W.append(self.remaining_lpf_W[1:lpf_index])  # start at 1 to exclude None
         self.remaining_lpf_W = [None] + self.remaining_lpf_W[lpf_index:]
         self.size_W = self.size_W[lpf_index - 1:]
         self.access_W = self.access_W[lpf_index - 1:]
@@ -207,7 +203,6 @@ class Order(object):
         # Take into account spatial unrolling of this node to update access from level above
         su_irrelevant_factor = self.spatial_loop.su_irrelevant_size_dict['W'][level + 1]
         self.access_W = [access / su_irrelevant_factor for access in self.access_W]
-
 
     def allocate_memory_I(self, node, level):
         '''
@@ -234,9 +229,9 @@ class Order(object):
         for pr_loop_type_number in pr_size_copy.keys():
             pr_su_factor = self.spatial_loop.su_pr_size_dict_input[pr_loop_type_number][level + 1]
             pr_size_copy[pr_loop_type_number] = \
-                [ x * pr_su_factor for x in pr_size_copy[pr_loop_type_number] ]
+                [x * pr_su_factor for x in pr_size_copy[pr_loop_type_number]]
         relevant_su_factor = self.spatial_loop.su_relevant_size_dict['I'][level + 1]
-        relevant_size_copy = [ x * relevant_su_factor for x in relevant_size_copy]
+        relevant_size_copy = [x * relevant_su_factor for x in relevant_size_copy]
 
         # Calculate required size of this memory for each LPF (using original pr/relevant size)
         # as long as the required size is smaller than the maximal size for this node.
@@ -252,14 +247,14 @@ class Order(object):
         # Update the remaining LPFs/pr_size_dict_I/relevant_size_I to exclude all allocated ones
         # except for the last element of pr_size_copy/relevant_size_copy:
         # which will represent 'pr_size_dict_I/relevant_size_I if adding no new LPFs' for next memory level
-        to_allocate_I = self.remaining_lpf_I[1:lpf_index] # start at 1 to exclude 'None'
+        to_allocate_I = self.remaining_lpf_I[1:lpf_index]  # start at 1 to exclude 'None'
         for (lt_number, _) in to_allocate_I:
             if lt_number in self.pr_loop_type_numbers_I:
                 self.pr_seen_below[lt_number] = True
-        self.allocated_order_I.append(to_allocate_I) 
+        self.allocated_order_I.append(to_allocate_I)
         self.remaining_lpf_I = [None] + self.remaining_lpf_I[lpf_index:]
-        self.pr_size_dict_I = { 1: pr_size_copy[1][lpf_index - 1:], 2: pr_size_copy[2][lpf_index - 1:],
-                                3: pr_size_copy[3][lpf_index - 1:], 4: pr_size_copy[4][lpf_index - 1:] }
+        self.pr_size_dict_I = {1: pr_size_copy[1][lpf_index - 1:], 2: pr_size_copy[2][lpf_index - 1:],
+                               3: pr_size_copy[3][lpf_index - 1:], 4: pr_size_copy[4][lpf_index - 1:]}
         self.relevant_size_I = relevant_size_copy[lpf_index - 1:]
 
         self.loop_cycles['I'].append(self.total_cycles_I[lpf_index - 1])
@@ -312,7 +307,6 @@ class Order(object):
         su_irrelevant_factor = self.spatial_loop.su_irrelevant_size_dict['O'][level + 1]
         self.access_O = [access / su_irrelevant_factor for access in self.access_O]
 
-
         # TODO: Check if last ir loop included in this node
         if self.lpfs_seen_O > self.last_ir_index_O:
             self.all_ir_seen_O = True
@@ -346,30 +340,31 @@ class Order(object):
         for pr_loop_type_number in pr_size_copy.keys():
             pr_su_factor = self.spatial_loop.su_pr_size_dict_input[pr_loop_type_number][level + 1]
             pr_size_copy[pr_loop_type_number] = \
-                [ x * pr_su_factor for x in pr_size_copy[pr_loop_type_number] ]
+                [x * pr_su_factor for x in pr_size_copy[pr_loop_type_number]]
         relevant_su_factor = self.spatial_loop.su_relevant_size_dict['I'][level + 1]
-        relevant_size_copy = [ x * relevant_su_factor for x in relevant_size_copy]
+        relevant_size_copy = [x * relevant_su_factor for x in relevant_size_copy]
 
         # Get the size and access for the remaining LPFs of W
         size_W = [x for x in self.size_W if x <= max_size_W]
-        access_W = self.access_W[:len(size_W)]            
+        access_W = self.access_W[:len(size_W)]
 
         # Get the size and access for the remaining LPFs of I
-        size_I, access_I, reuse_I = self.get_size_access_reuse_I(max_size_I, pr_size_copy, relevant_size_copy)  
+        size_I, access_I, reuse_I = self.get_size_access_reuse_I(max_size_I, pr_size_copy, relevant_size_copy)
 
         # Convert size_W and size_I to size in bits as operands might use different precision
         size_bit_W = [x * precision_W for x in size_W]
-        size_bit_I = [x * precision_I for x in size_I]  
+        size_bit_I = [x * precision_I for x in size_I]
 
         # Convert access_W and access_I to energy cost
         access_en_W = [x * en_per_access_W for x in access_W]
         access_en_I = [x * en_per_access_I for x in access_I]
-        
+
         # Calculate the optimal combination of LPFs for both operands.
-        idx_W, idx_I = self.get_optimal_lpf_combination_dual(size_bit_W, access_en_W, size_bit_I, access_en_I, node_size_bits)
+        idx_W, idx_I = self.get_optimal_lpf_combination_dual(size_bit_W, access_en_W, size_bit_I, access_en_I,
+                                                             node_size_bits)
 
         # Update W attributes
-        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1]) # start at 1 to exclude 'None'
+        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1])  # start at 1 to exclude 'None'
         self.remaining_lpf_W = [None] + self.remaining_lpf_W[idx_W + 1:]
         self.size_W = self.size_W[idx_W:]
         self.access_W = self.access_W[idx_W:]
@@ -382,20 +377,19 @@ class Order(object):
         self.size_W = [x * su_relevant_factor for x in self.size_W]
 
         # Update I attributes
-        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1] # start at 1 to exclude 'None'
+        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1]  # start at 1 to exclude 'None'
         for (lt_number, _) in to_allocate_I:
             if lt_number in self.pr_loop_type_numbers_I:
                 self.pr_seen_below[lt_number] = True
-        self.allocated_order_I.append(to_allocate_I) 
+        self.allocated_order_I.append(to_allocate_I)
         self.remaining_lpf_I = [None] + self.remaining_lpf_I[idx_I + 1:]
-        self.pr_size_dict_I = { 1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
-                                3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
+        self.pr_size_dict_I = {1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
+                               3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
         self.relevant_size_I = relevant_size_copy[idx_I:]
         self.loop_cycles['I'].append(self.total_cycles_I[idx_I])
         self.total_cycles_I = self.total_cycles_I[idx_I:]
         self.MAC_op_I = self.MAC_op_I[idx_I:]
         self.irrelevant_loop['I'].append(reuse_I[idx_I])
-
 
     def allocate_memory_IO(self, node, level):
         '''
@@ -428,9 +422,9 @@ class Order(object):
         for pr_loop_type_number in pr_size_copy.keys():
             pr_su_factor = self.spatial_loop.su_pr_size_dict_input[pr_loop_type_number][level + 1]
             pr_size_copy[pr_loop_type_number] = \
-                [ x * pr_su_factor for x in pr_size_copy[pr_loop_type_number] ]
+                [x * pr_su_factor for x in pr_size_copy[pr_loop_type_number]]
         relevant_su_factor = self.spatial_loop.su_relevant_size_dict['I'][level + 1]
-        relevant_size_copy = [ x * relevant_su_factor for x in relevant_size_copy]
+        relevant_size_copy = [x * relevant_su_factor for x in relevant_size_copy]
 
         # Take into account spatial unrolling of this node for O access to/from level above
         su_irrelevant_factor = self.spatial_loop.su_irrelevant_size_dict['O'][level + 1]
@@ -452,17 +446,18 @@ class Order(object):
         access_en_O = [x * en_per_access_O for x in access_O]
 
         # Calculate the optimal combination of LPFs for both operands
-        idx_I, idx_O = self.get_optimal_lpf_combination_dual(size_bit_I, access_en_I, size_bit_O, access_en_O, node_size_bits)
+        idx_I, idx_O = self.get_optimal_lpf_combination_dual(size_bit_I, access_en_I, size_bit_O, access_en_O,
+                                                             node_size_bits)
 
         # Update I attributes
-        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1] # start at 1 to exclude 'None'
+        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1]  # start at 1 to exclude 'None'
         for (lt_number, _) in to_allocate_I:
             if lt_number in self.pr_loop_type_numbers_I:
                 self.pr_seen_below[lt_number] = True
-        self.allocated_order_I.append(to_allocate_I) # start at 1 to excluded 'None'
+        self.allocated_order_I.append(to_allocate_I)  # start at 1 to excluded 'None'
         self.remaining_lpf_I = [None] + self.remaining_lpf_I[idx_I + 1:]
-        self.pr_size_dict_I = { 1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
-                                3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
+        self.pr_size_dict_I = {1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
+                               3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
         self.relevant_size_I = relevant_size_copy[idx_I:]
         self.loop_cycles['I'].append(self.total_cycles_I[idx_I])
         self.total_cycles_I = self.total_cycles_I[idx_I:]
@@ -486,8 +481,6 @@ class Order(object):
         # Check if last ir loop included in this node
         if self.lpfs_seen_O > self.last_ir_index_O:
             self.all_ir_seen_O = True
-
-        
 
     def allocate_memory_WO(self, node, level):
         '''
@@ -536,10 +529,11 @@ class Order(object):
         access_en_O = [x * en_per_access_O for x in access_O]
 
         # Calculate the optimal combination of LPFs for both operands
-        idx_W, idx_O = self.get_optimal_lpf_combination_dual(size_bit_W, access_en_W, size_bit_O, access_en_O, node_size_bits)
+        idx_W, idx_O = self.get_optimal_lpf_combination_dual(size_bit_W, access_en_W, size_bit_O, access_en_O,
+                                                             node_size_bits)
 
         # Update W attributes
-        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1]) # start at 1 to exclude 'None'
+        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1])  # start at 1 to exclude 'None'
         self.remaining_lpf_W = [None] + self.remaining_lpf_W[idx_W + 1:]
         self.size_W = self.size_W[idx_W:]
         self.access_W = self.access_W[idx_W:]
@@ -605,9 +599,9 @@ class Order(object):
         for pr_loop_type_number in pr_size_copy.keys():
             pr_su_factor = self.spatial_loop.su_pr_size_dict_input[pr_loop_type_number][level + 1]
             pr_size_copy[pr_loop_type_number] = \
-                [ x * pr_su_factor for x in pr_size_copy[pr_loop_type_number] ]
+                [x * pr_su_factor for x in pr_size_copy[pr_loop_type_number]]
         relevant_su_factor = self.spatial_loop.su_relevant_size_dict['I'][level + 1]
-        relevant_size_copy = [ x * relevant_su_factor for x in relevant_size_copy]
+        relevant_size_copy = [x * relevant_su_factor for x in relevant_size_copy]
 
         # Take into account spatial unrolling of this node for O access to/from level above
         su_irrelevant_factor_O = self.spatial_loop.su_irrelevant_size_dict['O'][level + 1]
@@ -636,11 +630,11 @@ class Order(object):
 
         # Calculate the optimal combination of LPFs for three oprands
         idx_W, idx_I, idx_O = self.get_optimal_lpf_combination_triple(size_bit_W, access_en_W,
-                                                                    size_bit_I, access_en_I,
-                                                                    size_bit_O, access_en_O, node_size_bits)
-        
+                                                                      size_bit_I, access_en_I,
+                                                                      size_bit_O, access_en_O, node_size_bits)
+
         # Update W attributes
-        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1]) # start at 1 to exclude 'None'
+        self.allocated_order_W.append(self.remaining_lpf_W[1:idx_W + 1])  # start at 1 to exclude 'None'
         self.remaining_lpf_W = [None] + self.remaining_lpf_W[idx_W + 1:]
         self.size_W = self.size_W[idx_W:]
         self.access_W = self.access_W[idx_W:]
@@ -653,14 +647,14 @@ class Order(object):
         self.size_W = [x * su_relevant_factor for x in self.size_W]
 
         # Update I attributes
-        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1] # start at 1 to exclude 'None'
+        to_allocate_I = self.remaining_lpf_I[1:idx_I + 1]  # start at 1 to exclude 'None'
         for (lt_number, _) in to_allocate_I:
             if lt_number in self.pr_loop_type_numbers_I:
                 self.pr_seen_below[lt_number] = True
-        self.allocated_order_I.append(to_allocate_I) # start at 1 to excluded 'None'
+        self.allocated_order_I.append(to_allocate_I)  # start at 1 to excluded 'None'
         self.remaining_lpf_I = [None] + self.remaining_lpf_I[idx_I + 1:]
-        self.pr_size_dict_I = { 1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
-                                3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
+        self.pr_size_dict_I = {1: pr_size_copy[1][idx_I:], 2: pr_size_copy[2][idx_I:],
+                               3: pr_size_copy[3][idx_I:], 4: pr_size_copy[4][idx_I:]}
         self.relevant_size_I = relevant_size_copy[idx_I:]
         self.loop_cycles['I'].append(self.total_cycles_I[idx_I])
         self.total_cycles_I = self.total_cycles_I[idx_I:]
@@ -691,9 +685,9 @@ class Order(object):
         Set the complete allocated_order attribute containing the three operands.
         '''
 
-        self.allocated_order_W.append(self.remaining_lpf_W[1:]) # start at 1 to exclude 'None'
-        self.allocated_order_I.append(self.remaining_lpf_I[1:]) # start at 1 to exclude 'None'
-        self.allocated_order_O.append(self.remaining_lpf_O[1:]) # start at 1 to exclude 'None'
+        self.allocated_order_W.append(self.remaining_lpf_W[1:])  # start at 1 to exclude 'None'
+        self.allocated_order_I.append(self.remaining_lpf_I[1:])  # start at 1 to exclude 'None'
+        self.allocated_order_O.append(self.remaining_lpf_O[1:])  # start at 1 to exclude 'None'
 
         self.loop_cycles['W'].append(self.total_cycles_W[-1])
         self.loop_cycles['I'].append(self.total_cycles_I[-1])
@@ -702,25 +696,24 @@ class Order(object):
         self.irrelevant_loop['W'].append(self.irrelevant_loop_W[-1])
         self.irrelevant_loop['I'].append(self.total_input_data_reuse)
         self.irrelevant_loop['O'].append(self.irrelevant_loop_O[-1])
-        
+
         # Convert this compounded irrelevant_loop to level-wise irrelevant_loop
         irrelevant_loop = {'W': [], 'I': [], 'O': []}
         for i in range(1, len(self.irrelevant_loop['W'])):
-            irrelevant_loop['W'].append(self.irrelevant_loop['W'][i] / self.irrelevant_loop['W'][i-1]) 
+            irrelevant_loop['W'].append(self.irrelevant_loop['W'][i] / self.irrelevant_loop['W'][i - 1])
         for i in range(1, len(self.irrelevant_loop['I'])):
-            irrelevant_loop['I'].append(self.irrelevant_loop['I'][i] / self.irrelevant_loop['I'][i-1])
+            irrelevant_loop['I'].append(self.irrelevant_loop['I'][i] / self.irrelevant_loop['I'][i - 1])
         for i in range(1, len(self.irrelevant_loop['O'])):
-            irrelevant_loop['O'].append(self.irrelevant_loop['O'][i] / self.irrelevant_loop['O'][i-1])
+            irrelevant_loop['O'].append(self.irrelevant_loop['O'][i] / self.irrelevant_loop['O'][i - 1])
         self.irrelevant_loop = irrelevant_loop
         # if self.order_raw == ((1, 3), (2, 3), (5, 3), (3, 2), (3, 4), (4, 2), (4, 56)):
         #     print("irrelevent loop I=", self.irrelevant_loop['I'])
-        
 
         # NOTE: The self.size_X, self.access_X and other attributes won't be updated as no longer required.
         # Thus, beware of using them past this point.
 
         self.allocated_order = {'W': self.allocated_order_W, 'I': self.allocated_order_I, 'O': self.allocated_order_O}
-    
+
         return self.allocated_order
 
     def get_size_access_reuse_I(self, max_size_I, pr_size_copy, relevant_size_copy):
@@ -737,40 +730,40 @@ class Order(object):
         access_I = []
         reuse_I = []
         for i in range(n_lpfs):
-            input_data_size = self.calc_input_data_size(self.pr_size_dict_I[1][i], self.pr_size_dict_I[2][i], 
-                                                        self.pr_size_dict_I[3][i], self.pr_size_dict_I[4][i], 
+            input_data_size = self.calc_input_data_size(self.pr_size_dict_I[1][i], self.pr_size_dict_I[2][i],
+                                                        self.pr_size_dict_I[3][i], self.pr_size_dict_I[4][i],
                                                         self.relevant_size_I[i])
             if input_data_size > max_size_I:
                 break
             else:
                 size_I.append(input_data_size)
-                n_MAC = self.MAC_op_I[i] 
-                if i == 0: # No LPF added, accesses from above should be the same as for previous level
+                n_MAC = self.MAC_op_I[i]
+                if i == 0:  # No LPF added, accesses from above should be the same as for previous level
                     input_data_access = self.total_MAC_op / input_data_size
                     # Recalculate input_data_size for data reuse as this levels su can influence data size
                     input_data_size_reuse = self.calc_input_data_size(pr_size_copy[1][0], pr_size_copy[2][0],
-                                                                    pr_size_copy[3][0], pr_size_copy[4][0], 
-                                                                    relevant_size_copy[0])
+                                                                      pr_size_copy[3][0], pr_size_copy[4][0],
+                                                                      relevant_size_copy[0])
                     input_data_reuse = n_MAC / input_data_size_reuse
-                else: # FIFO effect possible, also chain FIFO possible. Example: OX | FX OX FX OX
+                else:  # FIFO effect possible, also chain FIFO possible. Example: OX | FX OX FX OX
                     lt_number = self.remaining_lpf_I[i][0]
                     if lt_number in self.pr_loop_type_numbers_I:
                         self.pr_seen_below[lt_number] = True
 
                     try:
-                        fifo_lt_number = self.remaining_lpf_I[i+1][0]
+                        fifo_lt_number = self.remaining_lpf_I[i + 1][0]
                         fifo_partner_lt_number = self.fifo_partner_loop_type_number[fifo_lt_number]
                         if self.pr_seen_below[fifo_partner_lt_number]:
                             fifo_effect_occurs = True
                         else:
                             fifo_effect_occurs = False
-                    except: # triggered for i == n_lpfs - 1
-                        fifo_effect_occurs = False # FIFO effect can't happen if all LPFs are added
+                    except:  # triggered for i == n_lpfs - 1
+                        fifo_effect_occurs = False  # FIFO effect can't happen if all LPFs are added
                     fx = pr_size_copy[1][i]
                     fy = pr_size_copy[2][i]
                     ox = pr_size_copy[3][i]
                     oy = pr_size_copy[4][i]
-                    pr_sizes = [0, fx, fy, ox, oy] # 0 inserted so index matches lt_number
+                    pr_sizes = [0, fx, fy, ox, oy]  # 0 inserted so index matches lt_number
                     if fifo_effect_occurs:
                         next_lpf_i = i + 1
                         # Check for chain effect
@@ -782,10 +775,10 @@ class Order(object):
                                 next_lpf_i += 1
                             else:
                                 break
-                    
+
                     input_data_size_reuse = self.calc_input_data_size(pr_sizes[1], pr_sizes[2],
-                                                                    pr_sizes[3], pr_sizes[4],
-                                                                    relevant_size_copy[i], fifo=fifo_effect_occurs)                                              
+                                                                      pr_sizes[3], pr_sizes[4],
+                                                                      relevant_size_copy[i], fifo=fifo_effect_occurs)
                     input_data_access = self.total_MAC_op / input_data_size_reuse
                     input_data_reuse = n_MAC / input_data_size_reuse
 
@@ -800,7 +793,6 @@ class Order(object):
                 reuse_I.append(input_data_reuse)
 
         return size_I, access_I, reuse_I
-
 
     def calc_input_data_size(self, fx, fy, ox, oy, cb, fifo=False):
         '''
@@ -829,11 +821,10 @@ class Order(object):
             else:
                 iy = self.sy * (oy - 1) + self.sfy * (fy - 1) + 1
                 interleaved_storage_iy = False
-        
+
         input_data_size = ix * iy * cb
 
         return input_data_size
-
 
     @staticmethod
     def get_optimal_lpf_combination_dual(size_1, en_1, size_2, en_2, node_size):
@@ -890,3 +881,153 @@ class Order(object):
                             j_min = j
                             k_min = k
         return i_min, j_min, k_min
+
+
+class OrderEven(object):
+    def __init__(self, order, spatial_loop, layer, input_settings, n_mem_levels):
+        self.order = order
+        self.spatial_loop = spatial_loop
+        self.layer = layer
+        self.sx = layer.SX
+        self.sy = layer.SY
+        self.sfx = layer.SFX
+        self.sfy = layer.SFY
+        self.precision = input_settings.precision
+        self.n_mem_levels = n_mem_levels
+        self.relevant_loop_type_numbers = {'W': [1, 2, 5, 6], 'I': [5, 7], 'O': [3, 4, 6, 7]}
+
+    def allocate_memory_nodes(self, nodes):
+        # For the even memory allocation, we take a top-down approach, so we start with the top memory and remove LPFs
+        # as required while making our way downward the memory stack.
+        lpfs = self.order
+        first_iteration = True
+        allocated_lpfs = []
+        previous_lpfs = lpfs # Variable to extract lpf difference between the previous node and current node
+        for level in range(self.n_mem_levels - 1, -1, -1):
+            curr_nodes = nodes[level]
+            # Here the order of the nodes will start playing a role (recall that in Timeloop it is based on the definition order).
+            # For ZZ, I'm unsure in which order the nodes will be defined here. Simple workaround is just to define them in Timeloop
+            # so it matches here.
+            # Keep in mind that we are passing top-down here, so the first node in curr_nodes should be the bottom most memory in Timeloop.
+            curr_allocated_lpfs = []
+            curr_nodes.reverse() # From right to left (so now the last node is the bottom most memory)
+            for node in curr_nodes:
+                lpfs = self.even_allocate_node(node, lpfs, level)
+                lpfs_diff = OrderEven.difference(lpfs, previous_lpfs)
+                previous_lpfs = lpfs
+                if not first_iteration:
+                    curr_allocated_lpfs.append(lpfs_diff)
+                first_iteration = False
+            allocated_lpfs.insert(0, curr_allocated_lpfs)
+
+        # For the absolute last memory node, we have to manually append the remaining LPFs which havent been appended yet
+        # These are in 'lpfs' and have to be stored in the lowest level of allocated_lpfs, hence index 0
+        allocated_lpfs[0].append(lpfs)
+
+        # At this point we have the allocated lpfs for each memory node in allocated_lpfs,
+        # but we still have to convert this back to ZZ's notation format.
+        # For this we will pass through the different levels from bottom to top and
+        # for the different operands construct the allocated order dict
+        allocated_order = {'W': [], 'I': [], 'O': []}
+        lpfs_so_far = {'W': [], 'I': [], 'O': [], 'all': []}
+        for level, curr_nodes in enumerate(nodes):
+            for idx, node in enumerate(curr_nodes):
+                node_lpfs = allocated_lpfs[level][idx]
+                lpfs_so_far['all'] += node_lpfs
+                for operand in node.operands:
+                    diff = OrderEven.difference(lpfs_so_far[operand], lpfs_so_far['all'])
+                    lpfs_so_far[operand] += diff
+                    allocated_order[operand].append(diff)
+
+        return allocated_order
+
+    @staticmethod
+    def difference(lpfsa, lpfsb):
+        """
+        Function that returns the difference between two lists of lpfs
+        Example:
+            lpfsa = [1, 2, 3, 4]
+            lpfsb = [1, 2, 3, 4, 5, 6]
+            diff = [5, 6]
+        """
+        if len(lpfsa) <= len(lpfsb):
+            la = lpfsa
+            lb = lpfsb
+        else:
+            la = lpfsb
+            lb = lpfsa
+        assert la == lb[:len(la)], "Common part of two lists should be equal"
+        return lb[len(la):]
+
+    def even_allocate_node(self, node, lpfs, level):
+        node_size_bits = node.memory_level["size_bit"]
+        operands = node.operands
+        # Take into account the spatial unrolling up until 'level'
+        spatial_loops = self.spatial_loop.cumulative_spatial_loops[level]
+        temporal_loops = lpfs
+        for i in range(len(lpfs)): # As i increases, we start removing lpfs because they don't fit in this node
+            temporal_loops = lpfs[:len(lpfs) - i]
+            all_loops = spatial_loops + temporal_loops
+            req_size_bits = 0
+            for operand in operands:
+                req_size_bits += self.calc_operand_size_bits(operand, all_loops)
+            if req_size_bits < node_size_bits:
+                break
+
+        return temporal_loops
+
+    def calc_operand_size_bits(self, operand, lpfs):
+        """
+        operand = 'W', 'I' or 'O'
+        lpfs = list of lpfs (should include the correct spatial loops for total size)
+        """
+        operand_size_elem = 1
+        for (loop_type_number, loop_size) in lpfs:
+            if loop_type_number in self.relevant_loop_type_numbers[operand]:
+                operand_size_elem *= loop_size
+
+        # If operand == 'I', we only have the relevant B and C loop, so pr loops are handled here
+        if operand == 'I':
+            fx = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 1])
+            fy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 2])
+            ox = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 3])
+            oy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 4])
+            operand_size_elem = self.calc_input_data_size(fx, fy, ox, oy, operand_size_elem, fifo=False)
+
+        # Convert operand size in elements to operand size in bits through precision
+        # TODO: Implement the difference between O and O_partial
+        operand_size_bits = operand_size_elem * self.precision[operand]
+
+        return operand_size_bits
+
+    def calc_input_data_size(self, fx, fy, ox, oy, cb, fifo=False):
+        '''
+        Function to calculate the total input data size given the loop dimensions
+
+        Arguments
+        =========
+        - bc: The product of the B and C loop type dimensions
+        - fifo: boolean to cope with different handling of stride when fifo effect occurs.
+                TemporalLoop always uses stride for both IX and IY if fifo effect occured.
+                This is probably wrong, and should be changed, but done here to stay consistent with TemporalLoop
+        '''
+        if fifo:
+            ix = self.sx * (ox - 1) + self.sfx * (fx - 1) + 1
+            iy = self.sy * (oy - 1) + self.sfy * (fy - 1) + 1
+        else:
+            if ox == 1 or fx == 1:
+                ix = ox + fx - 1
+                interleaved_storage_ix = True
+            else:
+                ix = self.sx * (ox - 1) + self.sfx * (fx - 1) + 1
+                interleaved_storage_ix = False
+            if oy == 1 or fy == 1:
+                iy = oy + fy - 1
+                interleaved_storage_iy = True
+            else:
+                iy = self.sy * (oy - 1) + self.sfy * (fy - 1) + 1
+                interleaved_storage_iy = False
+
+        input_data_size = ix * iy * cb
+
+        return input_data_size

@@ -5,7 +5,7 @@ import cost_model_funcs as cmf
 import output_funcs as of
 from copy import deepcopy
 import numpy as np
-from classes.order import Order
+from classes.order import Order, OrderEven
 import operator
 import time
 from classes.layer_rounding import mem_access_count_correct
@@ -643,26 +643,28 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                     merged_set.add(hashed)
 
                                     ################################## MEMORY ALLOCATION ##################################
+                                even_memory_allocation = True
+                                if even_memory_allocation:
+                                    order = OrderEven(merged_order, spatial_loop, layer, input_settings, n_mem_levels)
+                                    allocated_order = order.allocate_memory_nodes(nodes)
+                                else:
+                                    # Initialize Order object
+                                    order = Order(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
 
-                                # Initialize Order object
-                                order = Order(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
+                                    # Loop through all the nodes in each level to allocate the LPFs to the memories
+                                    for level in range(n_mem_levels):
+                                        if level == n_mem_levels - 1:
+                                            # If the level is the last level in the hierarchy, allocate all remaning LPFs.
+                                            allocated_order = order.allocate_remaining()
+                                            break
+                                        for node in nodes[level]:
+                                            order.allocate_memory(node, level)
 
-                                # Loop through all the nodes in each level to allocate the LPFs to the memories
-                                for level in range(n_mem_levels):
-                                    if level == n_mem_levels - 1:
-                                        # If the level is the last level in the hierarchy, allocate all remaning LPFs.
-                                        allocated_order = order.allocate_remaining()
-                                        break
-                                    for node in nodes[level]:
-                                        order.allocate_memory(node, level)
-                                
                                 # print(merged_order)
                                 # print('W\t', allocated_order['W'])
                                 # print('I\t', allocated_order['I'])
                                 # print('O\t', allocated_order['O'])
 
-                                # if merged_order == ((5, 2), (5, 288), (4, 7), (6, 6)):
-                                #     print(allocated_order['I'])
 
                                 ################################## COST MODEL EVALUATION ##################################
                                 # temporal_loop = TemporalLoopLight(layer_rounded, allocated_order, spatial_loop, order.loop_cycles, order.irrelevant_loop)
