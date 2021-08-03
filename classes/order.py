@@ -1,7 +1,7 @@
 from copy import deepcopy
 from numpy import prod
 from functools import reduce
-
+from pprint import pprint
 
 class Order(object):
     """
@@ -901,7 +901,9 @@ class OrderEven(object):
         # as required while making our way downward the memory stack.
         lpfs = self.order
         first_iteration = True
-        allocated_lpfs = []
+        allocated_lpfs = [[None for _ in range(len(nodes[level]))] for level in range(self.n_mem_levels)]
+        previous_level = None
+        previous_node_idx = None
         previous_lpfs = lpfs # Variable to extract lpf difference between the previous node and current node
         for level in range(self.n_mem_levels - 1, -1, -1):
             curr_nodes = nodes[level]
@@ -909,20 +911,19 @@ class OrderEven(object):
             # For ZZ, I'm unsure in which order the nodes will be defined here. Simple workaround is just to define them in Timeloop
             # so it matches here.
             # Keep in mind that we are passing top-down here, so the first node in curr_nodes should be the bottom most memory in Timeloop.
-            curr_allocated_lpfs = []
-            curr_nodes.reverse() # From right to left (so now the last node is the bottom most memory)
-            for node in curr_nodes:
+            for node_idx in range(len(curr_nodes) - 1, -1, -1):
+                node = curr_nodes[node_idx]
                 lpfs = self.even_allocate_node(node, lpfs, level)
                 lpfs_diff = OrderEven.difference(lpfs, previous_lpfs)
                 previous_lpfs = lpfs
                 if not first_iteration:
-                    curr_allocated_lpfs.append(lpfs_diff)
+                    allocated_lpfs[previous_level][previous_node_idx] = lpfs_diff
+                previous_level = level
+                previous_node_idx = node_idx
                 first_iteration = False
-            allocated_lpfs.insert(0, curr_allocated_lpfs)
 
-        # For the absolute last memory node, we have to manually append the remaining LPFs which havent been appended yet
-        # These are in 'lpfs' and have to be stored in the lowest level of allocated_lpfs, hence index 0
-        allocated_lpfs[0].append(lpfs)
+        # For the absolute last memory node, we have to manually set the remaining LPFs
+        allocated_lpfs[previous_level][previous_node_idx] = lpfs
 
         # At this point we have the allocated lpfs for each memory node in allocated_lpfs,
         # but we still have to convert this back to ZZ's notation format.
@@ -931,10 +932,10 @@ class OrderEven(object):
         allocated_order = {'W': [], 'I': [], 'O': []}
         lpfs_so_far = {'W': [], 'I': [], 'O': [], 'all': []}
         for level, curr_nodes in enumerate(nodes):
-            for idx, node in enumerate(curr_nodes):
-                node_lpfs = allocated_lpfs[level][idx]
+            for node_idx, node in enumerate(curr_nodes):
+                node_lpfs = allocated_lpfs[level][node_idx]
                 lpfs_so_far['all'] += node_lpfs
-                for operand in node.operands:
+                for operand in node.operand:
                     diff = OrderEven.difference(lpfs_so_far[operand], lpfs_so_far['all'])
                     lpfs_so_far[operand] += diff
                     allocated_order[operand].append(diff)
@@ -961,7 +962,7 @@ class OrderEven(object):
 
     def even_allocate_node(self, node, lpfs, level):
         node_size_bits = node.memory_level["size_bit"]
-        operands = node.operands
+        operands = node.operand
         # Take into account the spatial unrolling up until 'level'
         spatial_loops = self.spatial_loop.cumulative_spatial_loops[level]
         temporal_loops = lpfs
@@ -988,10 +989,10 @@ class OrderEven(object):
 
         # If operand == 'I', we only have the relevant B and C loop, so pr loops are handled here
         if operand == 'I':
-            fx = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 1])
-            fy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 2])
-            ox = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 3])
-            oy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 4])
+            fx = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 1], 1)
+            fy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 2], 1)
+            ox = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 3], 1)
+            oy = reduce(lambda a, b: a * b, [loop_size for (lt_number, loop_size) in lpfs if lt_number == 4], 1)
             operand_size_elem = self.calc_input_data_size(fx, fy, ox, oy, operand_size_elem, fifo=False)
 
         # Convert operand size in elements to operand size in bits through precision

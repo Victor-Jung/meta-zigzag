@@ -255,9 +255,9 @@ class SpatialLoop(object):
         # We take the W spatial loop and assume there is no uneven spatial unrolling.
         # If there is uneven spatial unrolling, I'm unsure of the implications.
         cumulative_spatial_loops = []
-        spatial_loops_nested = spatial_loop['W']
+        spatial_loops_nested = spatial_loop['I']
         for idx in range(len(spatial_loops_nested)):
-            curr_nested = spatial_loop[:idx]
+            curr_nested = spatial_loops_nested[:idx]
             curr_flat = [lpf for lpf_list in curr_nested for lpf in lpf_list]
             if idx > 0:  # skip mac level because we only want to save this for the memory levels
                 cumulative_spatial_loops.append(curr_flat)

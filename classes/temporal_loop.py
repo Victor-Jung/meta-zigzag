@@ -25,39 +25,39 @@ class TemporalLoop(object):
         # just disable this whole temporal_loop_st generating block,
         # and uncomment the following:
         #
-        # temporal_loop_st = copy.deepcopy(temporal_loop)
+        temporal_loop_st = copy.deepcopy(temporal_loop)
 
-        temporal_loop_st = {}
-
-        ir_loop = {'W': [3, 4, 7],
-                   'I': [6],
-                   'O': [1, 2, 5]}
-
-        temporal_loop_copy = copy.deepcopy(temporal_loop)
-        temporal_loop_previous = copy.deepcopy(temporal_loop)
-        not_finish = True
-        while not_finish:
-            for operand in ['W', 'I', 'O']:
-                temporal_loop_st[operand] = []
-                for level, li in enumerate(temporal_loop_previous[operand]):
-                    temporal_loop_st[operand].append([])
-                    if level == 0 or not li:
-                        temporal_loop_st[operand][level] = copy.deepcopy(li)
-                    else:
-                        li_save = copy.deepcopy(li)
-                        for lo in li_save:
-                            if lo[0] in ir_loop[operand]:
-                                temporal_loop_st[operand][level-1].append(lo)
-                                temporal_loop_copy[operand][level].remove(lo)
-                            else:
-                                temporal_loop_st[operand][level] = copy.deepcopy(temporal_loop_copy[operand][level])
-                                break
-            if temporal_loop_st != temporal_loop_previous:
-                temporal_loop_previous = copy.deepcopy(temporal_loop_st)
-                temporal_loop_copy = copy.deepcopy(temporal_loop_st)
-                continue
-            else:
-                not_finish = False
+        # temporal_loop_st = {}
+        #
+        # ir_loop = {'W': [3, 4, 7],
+        #            'I': [6],
+        #            'O': [1, 2, 5]}
+        #
+        # temporal_loop_copy = copy.deepcopy(temporal_loop)
+        # temporal_loop_previous = copy.deepcopy(temporal_loop)
+        # not_finish = True
+        # while not_finish:
+        #     for operand in ['W', 'I', 'O']:
+        #         temporal_loop_st[operand] = []
+        #         for level, li in enumerate(temporal_loop_previous[operand]):
+        #             temporal_loop_st[operand].append([])
+        #             if level == 0 or not li:
+        #                 temporal_loop_st[operand][level] = copy.deepcopy(li)
+        #             else:
+        #                 li_save = copy.deepcopy(li)
+        #                 for lo in li_save:
+        #                     if lo[0] in ir_loop[operand]:
+        #                         temporal_loop_st[operand][level-1].append(lo)
+        #                         temporal_loop_copy[operand][level].remove(lo)
+        #                     else:
+        #                         temporal_loop_st[operand][level] = copy.deepcopy(temporal_loop_copy[operand][level])
+        #                         break
+        #     if temporal_loop_st != temporal_loop_previous:
+        #         temporal_loop_previous = copy.deepcopy(temporal_loop_st)
+        #         temporal_loop_copy = copy.deepcopy(temporal_loop_st)
+        #         continue
+        #     else:
+        #         not_finish = False
 
         B = {}
         K = {}
