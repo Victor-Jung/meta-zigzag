@@ -645,7 +645,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                     ################################## MEMORY ALLOCATION ##################################
                                 even_memory_allocation = True
                                 if even_memory_allocation:
-                                    order = OrderEven(merged_order, spatial_loop, layer, input_settings, n_mem_levels)
+                                    order = OrderEven(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
                                     allocated_order = order.allocate_memory_nodes(nodes)
                                 else:
                                     # Initialize Order object
