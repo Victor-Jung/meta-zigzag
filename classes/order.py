@@ -899,7 +899,7 @@ class OrderEven(object):
     def allocate_memory_nodes(self, nodes):
         # For the even memory allocation, we take a top-down approach, so we start with the top memory and remove LPFs
         # as required while making our way downward the memory stack.
-        lpfs = self.order
+        lpfs = list(self.order)
         first_iteration = True
         allocated_lpfs = [[None for _ in range(len(nodes[level]))] for level in range(self.n_mem_levels)]
         previous_level = None
@@ -957,7 +957,7 @@ class OrderEven(object):
         else:
             la = lpfsb
             lb = lpfsa
-        assert la == lb[:len(la)], "Common part of two lists should be equal"
+        assert la == lb[:len(la)], f"Common part of two lists should be equal {la} {lb[:len(la)]}"
         return lb[len(la):]
 
     def even_allocate_node(self, node, lpfs, level):
@@ -965,9 +965,9 @@ class OrderEven(object):
         operands = node.operand
         # Take into account the spatial unrolling up until 'level'
         spatial_loops = self.spatial_loop.cumulative_spatial_loops[level]
-        temporal_loops = lpfs
-        for i in range(len(lpfs)): # As i increases, we start removing lpfs because they don't fit in this node
-            temporal_loops = lpfs[:len(lpfs) - i]
+        temporal_loops = list(lpfs)
+        for i in range(len(lpfs) + 1): # As i increases, we start removing lpfs because they don't fit in this node
+            temporal_loops = list(lpfs[:len(lpfs) - i])
             all_loops = spatial_loops + temporal_loops
             req_size_bits = 0
             for operand in operands:
