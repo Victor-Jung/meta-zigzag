@@ -7,7 +7,7 @@ im2col_enable_for_pointwise_layers: true
 layer_filename: './NN_layers/ResNet34_corrected'
 layer_indices: [32]
 layer_multiprocessing: 1
-max_nb_lpf_layer: 24
+max_nb_lpf_layer: 20
 result_filename: ResNet34_eyeriss_tl
 result_path: ./results_test
 result_print_mode: complete
@@ -19,5 +19,5 @@ save_results_on_the_fly: true
 spatial_unrolling_multiprocessing: 1
 spatial_unrolling_search_method: hint_driven
 spatial_utilization_threshold: 0.9
-temporal_mapping_multiprocessing: 48
-temporal_mapping_search_method: loma
+temporal_mapping_multiprocessing: 24
+temporal_mapping_search_method: meta-loma
