@@ -982,7 +982,7 @@ class OrderEven(object):
             req_size_bits = 0
             for operand in operands:
                 req_size_bits += self.calc_operand_size_bits(operand, all_loops)
-            if req_size_bits < node_size_bits:
+            if req_size_bits <= node_size_bits:
                 break
 
         return temporal_loops

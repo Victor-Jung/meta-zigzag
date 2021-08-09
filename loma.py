@@ -633,6 +633,8 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
 
                                 # Merge loops of same type
                                 merged_order = merge_loops(nonmerged_order, smallest_pfs)
+                                # merged order for Resnet34 Layer 32 even result found by Timeloop
+                                # merged_order = ((6,2), (6,8), (5,2), (5,2), (1,3), (3,7), (6,2), (6,4), (5,2), (5,16), (6,2))
 
                                 # Check if merged order was already processed
                                 hashed = hash(merged_order)
