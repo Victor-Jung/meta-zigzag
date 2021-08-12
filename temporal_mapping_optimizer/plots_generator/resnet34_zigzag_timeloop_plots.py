@@ -289,10 +289,9 @@ ax.tick_params(pad=65)
 plt.title("ResNet34", fontsize=20, pad=15)
 plt.ylabel("Energy (pJ)", fontsize=15, labelpad=10)
 plt.legend(loc='upper right', framealpha=1, ncol=5, edgecolor='grey', fontsize=13)
+
 ax.set_facecolor('#F2F2F2')
-
 ax.tick_params(axis='y', which='major', pad=5)
-
 ax.yaxis.set_major_locator(MultipleLocator(0.5e9))
 ax.yaxis.set_minor_locator(MultipleLocator(0.1e9))
 ax.grid(which='major', color='#CCCCCC', linestyle='-')
