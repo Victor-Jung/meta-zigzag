@@ -633,8 +633,8 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
 
                                 # Merge loops of same type
                                 merged_order = merge_loops(nonmerged_order, smallest_pfs)
-                                # merged order for Resnet34 Layer 32 even result found by Timeloop
-                                # merged_order = ((6,2), (6,8), (5,2), (5,2), (1,3), (3,7), (6,2), (6,4), (5,2), (5,16), (6,2))
+                                # merged order for Resnet34 Layer 1 even result found by Timeloop
+                                #merged_order = ((6,16),(1,7),(3,112),(6,2),(5,3),(4,16))
 
                                 # Check if merged order was already processed
                                 hashed = hash(merged_order)
@@ -649,6 +649,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                 if even_memory_allocation:
                                     order = OrderEven(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
                                     allocated_order = order.allocate_memory_nodes(nodes)
+                                    print(allocated_order)
                                 else:
                                     # Initialize Order object
                                     order = Order(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
@@ -663,7 +664,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                             order.allocate_memory(node, level)
 
                                 # print(merged_order)
-                                # print('W\t', allocated_order['W'])
+                                # print('W\t', allocated_order['W']) meta-loma
                                 # print('I\t', allocated_order['I'])
                                 # print('O\t', allocated_order['O'])
 
@@ -710,6 +711,7 @@ def tl_worker_new(tl_list, merged_count_dict, loop_type_order, total_merged_coun
                                                                               utilization, False))
                                     total_cost_layer += np.sum(operand_cost[operand])
                                 total_cost_layer += active_mac_cost + idle_mac_cost
+                                #print(total_cost_layer)
 
                                 ############################# COMPARISON WITH BEST SO FAR #############################
                                 en = total_cost_layer

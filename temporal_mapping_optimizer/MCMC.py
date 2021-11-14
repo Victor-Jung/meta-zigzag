@@ -112,15 +112,14 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
      exploration_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
      explotation_swap_array = np.zeros((len(temporal_mapping_ordering), len(temporal_mapping_ordering)), dtype=float)
 
+     value_list = []
+
      # Initialize mac costs
      mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
      # Extract the list of tuple from the tmo
      start_tmo = temporal_mapping_ordering
      # Initalization of a random starting point
      random.shuffle(start_tmo)
-
-     # Experiment for 1 tmo eval
-     #start_tmo = [[6,2],[1,11],[6,8],[2,11],[4,7],[6,2],[3,56],[6,3],[5,3],[4,8]]
 
      start_energy, start_utilization, start_latency, start_order = evaluate_tmo(start_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
      
@@ -171,7 +170,7 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           new_tmo = tmo_swap(old_tmo, i, j)
 
           new_energy, new_utilization, new_latency, new_order = evaluate_tmo(new_tmo, input_settings, spatial_loop_comb, mem_scheme, [im2col_layer, layer_rounded], mac_costs)
-
+          
           if opt == "energy":
                new_value = new_energy.item()
           elif opt == "latency":
@@ -188,10 +187,14 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
           elif opt == "pareto":
                p = np.exp(((old_value / new_value) - 1) / temperature)
 
+          #value_list.append(new_value)
+
           if(x < p):        
                old_tmo = new_tmo.copy()
                old_value = new_value
                old_order = new_order
+
+               value_list.append(new_value)
                
                explotation_swap_array[i, j] += 1
 
@@ -214,33 +217,33 @@ def mcmc(temporal_mapping_ordering, iter, layer, im2col_layer, layer_rounded, sp
 
      if verbose == 1:
           print("On ", iter, "iterations :", explotation_counter, "explotation and", exploration_counter, "exploration")
-
-     if plot:
+     #plot = True
+     if plot and opt == "energy":
           plt.figure(1)
-          plt.title('Utilization of accepted state evolution during the run')
+          #plt.title('Utilization of accepted state evolution during the run')
           plt.xlabel("Iteration")
-          plt.ylabel("Utilization")
+          plt.ylabel("Energy (pJ)")
           plt.plot([*range(len(accepted_value_list))], accepted_value_list)
-          plt.figure(2)
-          plt.title('Alpha evolution during the run')
-          plt.xlabel("Temporal Mapping Size")
-          plt.ylabel("Alpha")
-          plt.plot([*range(len(accepted_p_list))], accepted_p_list, "o")
-          plt.figure(3)
-          plt.title('Heatmap of Explotation Swap(i, j)')
-          plt.xlabel("i")
-          plt.ylabel("j")
-          plt.imshow(explotation_swap_array, cmap='hot', interpolation='nearest')
-          plt.figure(4)
-          plt.title('Heatmap of Exploration Swap(i, j)')
-          plt.xlabel("i")
-          plt.ylabel("j")
-          plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
+          # plt.figure(2)
+          # plt.title('Alpha evolution during the run')
+          # plt.xlabel("Temporal Mapping Size")
+          # plt.ylabel("Alpha")
+          # plt.plot([*range(len(accepted_p_list))], accepted_p_list, "o")
+          # plt.figure(3)
+          # plt.title('Heatmap of Explotation Swap(i, j)')
+          # plt.xlabel("i")
+          # plt.ylabel("j")
+          # plt.imshow(explotation_swap_array, cmap='hot', interpolation='nearest')
+          # plt.figure(4)
+          # plt.title('Heatmap of Exploration Swap(i, j)')
+          # plt.xlabel("i")
+          # plt.ylabel("j")
+          # plt.imshow(exploration_swap_array, cmap='hot', interpolation='nearest')
           plt.show()
 
      if opt == 'latency':
-          results_queue.put([best_value, best_ut, best_tmo, exec_time, best_order, opt])
+          results_queue.put([best_value, best_ut, best_tmo, exec_time, best_order, opt, 1])
      else:
-          results_queue.put([best_value, best_tmo, exec_time, best_order, opt])
+          results_queue.put([best_value, best_tmo, exec_time, best_order, opt, value_list])
           
      return best_value, best_tmo, exec_time

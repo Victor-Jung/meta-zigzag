@@ -22,6 +22,7 @@ from output_funcs import CommonSetting, print_xml, print_yaml
 import loma as loma
 from temporal_mapping_optimizer.optimizer import rl_temporal_mapping_optimizer
 import yaml
+import csv
 
 
 def tl_worker(tl_list, input_settings, mem_scheme, layer, spatial_loop, spatial_loop_fractional, spatial_loop_comb,
@@ -608,46 +609,58 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
             t2 = time.time()
             t_tmg = int(t2 - t1)
 
-            best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_ut_tmo, best_lat_order, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+            best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_ut_tmo, best_lat_order, exec_time, opt, value_list = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
-            # Convert tmo to list of list instead of list of tuple   
-            for idx, loop in enumerate(best_en_tmo):
-                best_en_tmo[idx] = list(loop)
-            for idx, loop in enumerate(best_ut_tmo):
-                best_ut_tmo[idx] = list(loop)
-
+            ### Write value_list into csv file ###
             mem_idx = mem_scheme_index
             parent_folder = "%s" % (input_settings.results_path)
-            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_Arch" + str(mem_idx) + ".yaml"
+            file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_value_list" + ".csv"
 
-            # Create the folder for the current NN if it doesn't exist
             if not os.path.exists(parent_folder):
                 os.makedirs(parent_folder)
             if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
                 os.makedirs(parent_folder + "/" + input_settings.results_filename)
-            if not os.path.exists(file_name):
-                open(file_name, 'a').close()
-
-            with open(file_name, "r") as f:
-                data_doc = yaml.safe_load(f)
-
-            if data_doc == None:
-                data_doc = dict()
-            if layer_index not in data_doc.keys():
-                data_doc[layer_index] = dict()
-            if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
-                data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
-            
-            data_doc[layer_index]['meta-loma']['en'] = best_en
-            data_doc[layer_index]['meta-loma']['en_tmo'] = best_en_tmo
-            data_doc[layer_index]['meta-loma']['ut'] = best_ut
-            data_doc[layer_index]['meta-loma']['lat'] = best_lat
-            data_doc[layer_index]['meta-loma']['ut_tmo'] = best_ut_tmo
-            data_doc[layer_index]['meta-loma']['exec_time'] = exec_time
-
             with open(file_name, "w") as f:
-                yaml.dump(data_doc, f)
+                write = csv.writer(f) 
+                write.writerow(value_list)
+
+            ### Write data into YAML file ###
+
+            # # Convert tmo to list of list instead of list of tuple   
+            # for idx, loop in enumerate(best_en_tmo):
+            #     best_en_tmo[idx] = list(loop)
+            # for idx, loop in enumerate(best_ut_tmo):
+            #     best_ut_tmo[idx] = list(loop)
+            
+
+            # # Create the folder for the current NN if it doesn't exist
+            # if not os.path.exists(parent_folder):
+            #     os.makedirs(parent_folder)
+            # if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+            #     os.makedirs(parent_folder + "/" + input_settings.results_filename)
+            # if not os.path.exists(file_name):
+            #     open(file_name, 'a').close()
+
+            # with open(file_name, "r") as f:
+            #     data_doc = yaml.safe_load(f)
+
+            # if data_doc == None:
+            #     data_doc = dict()
+            # if layer_index not in data_doc.keys():
+            #     data_doc[layer_index] = dict()
+            # if 'mcmc' and 'loma' not in data_doc[layer_index].keys():
+            #     data_doc[layer_index] = {'mcmc': {}, 'loma': {}, 'meta-loma': {}}
+            
+            # data_doc[layer_index]['meta-loma']['en'] = best_en
+            # data_doc[layer_index]['meta-loma']['en_tmo'] = best_en_tmo
+            # data_doc[layer_index]['meta-loma']['ut'] = best_ut
+            # data_doc[layer_index]['meta-loma']['lat'] = best_lat
+            # data_doc[layer_index]['meta-loma']['ut_tmo'] = best_ut_tmo
+            # data_doc[layer_index]['meta-loma']['exec_time'] = exec_time
+
+            # with open(file_name, "w") as f:
+            #     yaml.dump(data_doc, f)
 
             layer_comb = [layer_, layer_rounded]
             layer = [im2col_layer, layer_rounded]
@@ -886,7 +899,6 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
         best_en, best_en_tmo, best_lat, best_ut, best_ut_tmo, exec_time, opt = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
                                                                                             spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-
         # Convert tmo to list of list instead of list of tuple   
         for idx, loop in enumerate(best_en_tmo):
             best_en_tmo[idx] = list(loop)

@@ -28,7 +28,7 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
     
     elif opt == "mixed":
-        best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
+        best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time, value_list = optimize("mixed", number_of_thread, temporal_mapping_ordering, layer_post, 
                                 layer, im2col_layer, layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
 
     elif opt == "pareto":
@@ -38,8 +38,8 @@ def rl_temporal_mapping_optimizer(temporal_mapping_ordering, layer_post, layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
         optimize("pareto", number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
                 layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-    
-    return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time, opt
+
+    return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time, opt, value_list
 
 def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer, im2col_layer, 
             layer_rounded, spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling):
@@ -92,19 +92,21 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
             p.start()
 
     # Block while all process are not finished
-    for worker in worker_list:
-        worker.join()
+    # for worker in worker_list:
+    #     worker.join()
 
     # Collect results from the queue and extract the best
+    value_list = []
     if opt == "mixed":
         for i in range(0, max_core):
             result = results_queue.get()
-            if ((len(result) == 5) and result[0] < best_en):
+            if ((len(result) == 6) and result[0] < best_en):
                 best_en = result[0]
                 best_en_tmo = result[1]
                 exec_time = result[2]
                 best_en_order = result[3]
-            if (len(result) == 6 and result[0] < best_lat):
+                value_list = result[-1]
+            if (len(result) == 7 and result[0] < best_lat):
                 best_lat = result[0]
                 best_ut = result[1]
                 best_lat_tmo = result[2]
@@ -116,7 +118,18 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
         print("Best Latency :", best_lat)
         print("Exec time", exec_time)
 
-        return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time
+        # plot = False
+        # if plot:
+        #     plt.figure(1)
+        #     plt.xlabel("Iteration", fontsize=20)
+        #     plt.ylabel("Energy (pJ)", fontsize=20)
+        #     maker_list = ['-', '--', '-.']
+        #     for i in range(len(value_list_list)):
+        #         plt.plot([*range(len(value_list_list[i]))], value_list_list[i], maker_list[i], label='Run ' + str(i+1), linewidth=2)
+        #     plt.legend(loc='upper right', framealpha=1, ncol=4, edgecolor='grey', fontsize=17)
+        #     plt.show()
+
+        return best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_lat_tmo, best_lat_order, exec_time, value_list
 
     else:
         for i in range(0, max_core):

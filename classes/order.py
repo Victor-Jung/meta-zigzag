@@ -906,14 +906,15 @@ class OrderEven(object):
         previous_node_idx = None
         previous_lpfs = lpfs # Variable to extract lpf difference between the previous node and current node
 
-        # Put nodes in the good order
-        w_node = nodes[0][0]
-        i_node = nodes[0][1]
-        o_node = nodes[0][2]
+        # Put nodes in the good order (from WIO to OWI)
+        if len(nodes[0]) > 1:
+            w_node = nodes[0][0]
+            i_node = nodes[0][1]
+            o_node = nodes[0][2]
 
-        nodes[0][0] = o_node
-        nodes[0][1] = w_node
-        nodes[0][2] = i_node
+            nodes[0][0] = o_node
+            nodes[0][1] = w_node
+            nodes[0][2] = i_node
 
         for level in range(self.n_mem_levels - 1, -1, -1):
             curr_nodes = nodes[level]

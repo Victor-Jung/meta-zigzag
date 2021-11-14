@@ -7,13 +7,13 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
 
-zigzag_data_path = "../../tl_zz_benchmark/alexnet_zigzag_output/"
-meta_zigzag_data_path = "../../tl_zz_benchmark/alexnet_meta_zigzag_output/"
-loma_zigzag_data_path = "../../tl_zz_benchmark/alexnet_loma_zigzag_output/"
+zigzag_data_path = "../../tl_to_zz_benchmark/alexnet_zigzag_output/"
+meta_zigzag_data_path = "../../tl_to_zz_benchmark/alexnet_meta_zigzag_output/"
+loma_zigzag_data_path = "../../tl_to_zz_benchmark/alexnet_loma_zigzag_output/"
 
-loma_exh_zigzag_data_path = "../../tl_zz_benchmark/alexnet_meta_zigzag_output_even/"
-#loma_exh_zigzag_data_path = "../../tl_zz_benchmark/alexnet_loma_exh_zigzag_output/"
-timeloop_data_path = "../../tl_zz_benchmark/alexnet_timeloop_output/"
+loma_exh_zigzag_data_path = "../../tl_to_zz_benchmark/alexnet_meta_zigzag_output_even/"
+#loma_exh_zigzag_data_path = "../../tl_to_zz_benchmark/alexnet_loma_exh_zigzag_output/"
+timeloop_data_path = "../../tl_to_zz_benchmark/alexnet_timeloop_output/"
 
 file_name1 = "AlexNet_eyeriss_tl_L"
 file_name2 = "_M1_SU1_min_en.xml"
@@ -290,6 +290,8 @@ ax.yaxis.set_minor_locator(MultipleLocator(0.1e9))
 ax.grid(which='major', color='#CCCCCC', linestyle='-')
 ax.grid(which='minor', color='#CCCCCC', linestyle='--')
 ax.set_axisbelow(True)
+
+# Time
 
 fig2, ax2 = plt.subplots()
 labels = ['Layer 1', 'Layer 2', 'Layer 3', 'Layer 4', "Layer 5"]

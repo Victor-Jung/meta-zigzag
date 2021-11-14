@@ -524,7 +524,7 @@ def allocate_memory_for_tl_order(merged_order, spatial_loop, layer_origin, input
     """
     # Get the different MemoryNodes we need to allocate
     n_mem_levels = len(nodes)
-    even_memory_allocation = True
+    even_memory_allocation = False
     if even_memory_allocation:
         order = OrderEven(merged_order, spatial_loop, layer_origin, input_settings, n_mem_levels)
         allocated_order = order.allocate_memory_nodes(nodes)
