@@ -1,0 +1,23 @@
+architecture_search_multiprocessing: 1
+fixed_architecture: true
+fixed_spatial_unrolling: true
+fixed_temporal_mapping: false
+im2col_enable_for_all_layers: false
+im2col_enable_for_pointwise_layers: false
+layer_filename: './NN_layers/ResNet34_corrected' #DarkNet19 #AlexNet_full #ResNet34_corrected
+layer_indices: [9]
+layer_multiprocessing: 1
+max_nb_lpf_layer: 6
+result_filename: ResNet34_eyeriss_tl #AlexNet_zz_to_tl #ResNet34_zz_to_tl 
+result_path: ./results_test #./eyeriss_interstellar
+result_print_mode: complete
+result_print_type: xml
+save_all_architecture_result: true
+save_all_spatial_unrolling_result: true
+save_all_temporal_mapping_result: false
+save_results_on_the_fly: true
+spatial_unrolling_multiprocessing: 1
+spatial_unrolling_search_method: hint_driven
+spatial_utilization_threshold: 0.9
+temporal_mapping_multiprocessing: 8
+temporal_mapping_search_method: meta-loma

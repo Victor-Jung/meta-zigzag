@@ -68,7 +68,6 @@ if __name__ == "__main__":
                 pw_im2col_flag.append(False)
         layers = layers_pw_speedup
 
-
     # If there are duplicate layers, set flag for the latter ones.
     # This flag will prevent the layer from being evaluated later on to speed up run.
     for idx, layer in enumerate(layers):

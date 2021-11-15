@@ -608,22 +608,63 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
 
             t2 = time.time()
             t_tmg = int(t2 - t1)
-
-            best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_ut_tmo, best_lat_order, exec_time, opt, value_list = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
-                                                                                            spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
-
-            ### Write value_list into csv file ###
             mem_idx = mem_scheme_index
             parent_folder = "%s" % (input_settings.results_path)
             file_name = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_value_list" + ".csv"
 
+            best_en, best_en_tmo, best_en_order, best_lat, best_ut, best_ut_tmo, best_lat_order, exec_time, opt, value_list = rl_temporal_mapping_optimizer(None, layer_post, layer_, im2col_layer, layer_rounded, 
+                                                                                            spatial_loop_comb, input_settings, mem_scheme, ii_su, spatial_unrolling)
+
+            ### For studing the probability of reaching go : Write the best values in csv ###
+            file_name2 = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_L" + str(input_settings.layer_number[0]) +  "_en_prob.csv"
+            file_name3 = parent_folder + "/" + input_settings.results_filename + "/" + input_settings.results_filename + "_L" + str(input_settings.layer_number[0]) +  "_lat_prob.csv"
             if not os.path.exists(parent_folder):
                 os.makedirs(parent_folder)
             if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
                 os.makedirs(parent_folder + "/" + input_settings.results_filename)
-            with open(file_name, "w") as f:
-                write = csv.writer(f) 
-                write.writerow(value_list)
+            if not os.path.exists(file_name2):
+                with open(file_name2, "w+") as f:
+                    write = csv.writer(f)
+                    write.writerow([str(best_en)])
+                f.close()
+            else:
+                data_row = []
+                with open(file_name2, "r") as f:
+                    for row in csv.reader(f):
+                        data_row = row
+                f.close()
+                with open(file_name2, "w") as f:
+                    write = csv.writer(f)
+                    data_row.append(str(best_en))
+                    write.writerow(data_row)
+
+            if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+                os.makedirs(parent_folder + "/" + input_settings.results_filename)
+            if not os.path.exists(file_name3):
+                with open(file_name3, "w+") as f:
+                    write = csv.writer(f)
+                    write.writerow([str(best_lat)])
+                f.close()
+            else:
+                data_row = []
+                with open(file_name3, "r") as f:
+                    for row in csv.reader(f):
+                        data_row = row
+                f.close()
+                with open(file_name3, "w") as f:
+                    write = csv.writer(f)
+                    data_row.append(str(best_lat))
+                    write.writerow(data_row)
+
+            ### For studing the distribution of energy during the search : Write value_list into csv file ###
+
+            # if not os.path.exists(parent_folder):
+            #     os.makedirs(parent_folder)
+            # if not os.path.exists(parent_folder + "/" + input_settings.results_filename):
+            #     os.makedirs(parent_folder + "/" + input_settings.results_filename)
+            # with open(file_name, "w") as f:
+            #     write = csv.writer(f) 
+            #     write.writerow(value_list)
 
             ### Write data into YAML file ###
 
@@ -723,7 +764,7 @@ def mem_scheme_su_evaluate(input_settings, layer_, im2col_layer, layer_index, la
                                 print("MCMC exec time :", mcmc_exec_time)
                                 print("Time Difference with MCMC :", min(delta_t_list))
 
-        print(lpf_limit)
+        #print(lpf_limit)
         tl_list, nonmerged_count_dict, loop_type_order, tl_combinations = loma.og(layer_post, spatial_unrolling,
                                                                                   lpf_limit)
                                                                               

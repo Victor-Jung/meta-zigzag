@@ -11,12 +11,12 @@ meta_zigzag_data_path = "../../tl_to_zz_benchmark/darknet_meta_zigzag_output/"
 loma_zigzag_data_path = "../../tl_to_zz_benchmark/darknet_loma7_zigzag_output/"
 timeloop_data_path = "../../tl_to_zz_benchmark/darknet_timeloop_output/"
 
-file_name1 = "DarkNet_eyeriss_tl_L"
+file_name1 = "DarkNet19_eyeriss_tl_L"
 file_name2 = "_M1_SU1_min_en.xml"
 file_name_ut = "_M1_SU1_max_ut.xml"
 
 timeloop_file_name = "darknet_"
-extension = ".stats.txt"
+extension = "_zz.stats.txt"
 
 data_dict_list = []
 meta_data_dict_list = []
@@ -27,7 +27,7 @@ meta_data_dict_list_lat = []
 timeloop_energy_list = []
 timeloop_memory_energy_list = []
 
-timeloop_time_list = [89,230,453,522,395]
+timeloop_time_list = [521, 2014, 975, 377, 818, 836, 850, 516, 167, 119, 126]
 
 number_of_layer = 11
 layer_idx_list = [1,2,3,4,6,7,9,10,14,15,19]
@@ -136,12 +136,6 @@ loma_o_cost = []
 loma_buff_cost = []
 loma_dram_cost = []
 
-loma_exh_w_cost = []
-loma_exh_i_cost = []
-loma_exh_o_cost = []
-loma_exh_buff_cost = []
-loma_exh_dram_cost = []
-
 for i in range(number_of_layer):
 
     timeloop_w_cost.append(timeloop_memory_energy_list[i][0])
@@ -162,59 +156,51 @@ for i in range(number_of_layer):
     loma_buff_cost.append(loma_zigzag_memory_energy_list2[i][3])
     loma_dram_cost.append(loma_zigzag_memory_energy_list2[i][4])
 
-# Arithmetic mean
 tl_energy_sum = [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost, timeloop_buff_cost, timeloop_dram_cost)]
 meta_energy_sum = [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost, meta_buff_cost, meta_dram_cost)]
 
-tl_energy_mean = sum(tl_energy_sum) / number_of_layer
-meta_energy_mean = sum(meta_energy_sum) / number_of_layer
+darknet_layer_multiplicity = [1, 1, 2, 1, 2, ]
 
-tl_time_mean = sum(timeloop_time_list)/number_of_layer
-meta_time_mean = sum(meta_zigzag_time_list)/number_of_layer
+print(sum(tl_energy_sum)/sum(meta_energy_sum) - 1)
+print(sum(timeloop_time_list)/sum(meta_zigzag_time_list) - 1)
 
 ### Plotting ###
 # We plot the energy of the mapping found by A-LOMA and evaluated with TimeLoop cost model to avoid bias
 
 fig, ax = plt.subplots(2)
-labels = ['Layer 1', 'Layer 2', 'Layer 3', 'Layer 4', "Layer 5"]
+labels = ['Layer 1', 'Layer 2', 'Layer 3', 'Layer 4', "Layer 6", "Layer 7", "Layer 9", "Layer 10", "Layer 14", "Layer 15", "Layer 19"]
 fig.tight_layout()
 plt.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0.2, hspace=0.025)
 
-w = 0.2
+w = 0.25
 X = np.arange(1,number_of_layer+1)
 
-ax[0].bar(X-(0.30), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost, timeloop_buff_cost, timeloop_dram_cost)], width = w, color="#e76f51", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.30), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost, timeloop_buff_cost)], width = w, color="#f4a261", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.30), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost)], width = w, color="#e9c46a", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.30), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost)], width = w, color="#2a9d8f", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.30), timeloop_w_cost, width = w, color="#264653", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.25), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost, timeloop_buff_cost, timeloop_dram_cost)], width = w, color="#e76f51", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.25), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost, timeloop_buff_cost)], width = w, color="#f4a261", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.25), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost, timeloop_o_cost)], width = w, color="#e9c46a", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.25), [sum(x) for x in zip(timeloop_w_cost, timeloop_i_cost)], width = w, color="#2a9d8f", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.25), timeloop_w_cost, width = w, color="#264653", linewidth=1, edgecolor='grey')
 
-ax[0].bar(X-(0.10), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost, loma_buff_cost, loma_dram_cost)], width = w, color="#e76f51", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.10), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost, loma_buff_cost)], width = w, color="#f4a261", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.10), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost)], width = w, color="#e9c46a", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.10), [sum(x) for x in zip(loma_w_cost, loma_i_cost)], width = w, color="#2a9d8f", linewidth=1, edgecolor='grey')
-ax[0].bar(X-(0.10), loma_w_cost, width = w, color="#264653", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.00), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost, loma_buff_cost, loma_dram_cost)], width = w, color="#e76f51", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.00), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost, loma_buff_cost)], width = w, color="#f4a261", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.00), [sum(x) for x in zip(loma_w_cost, loma_i_cost, loma_o_cost)], width = w, color="#e9c46a", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.00), [sum(x) for x in zip(loma_w_cost, loma_i_cost)], width = w, color="#2a9d8f", linewidth=1, edgecolor='grey')
+ax[0].bar(X-(0.00), loma_w_cost, width = w, color="#264653", linewidth=1, edgecolor='grey')
 
-ax[0].bar(X+(0.10), [sum(x) for x in zip(loma_exh_w_cost, loma_exh_i_cost, loma_exh_o_cost, loma_exh_buff_cost, loma_exh_dram_cost)], width = w, color="#e76f51", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.10), [sum(x) for x in zip(loma_exh_w_cost, loma_exh_i_cost, loma_exh_o_cost, loma_exh_buff_cost)], width = w, color="#f4a261", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.10), [sum(x) for x in zip(loma_exh_w_cost, loma_exh_i_cost, loma_exh_o_cost)], width = w, color="#e9c46a", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.10), [sum(x) for x in zip(loma_exh_w_cost, loma_exh_i_cost)], width = w, color="#2a9d8f", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.10), loma_exh_w_cost, width = w, color="#264653", linewidth=1, edgecolor='grey')
-
-ax[0].bar(X+(0.30), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost, meta_buff_cost, meta_dram_cost)], width = w, label='DRAM', color="#e76f51", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.30), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost, meta_buff_cost)], width = w, label='shared_buff', color="#f4a261", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.30), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost)], width = w, label='O-reg', color="#e9c46a", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.30), [sum(x) for x in zip(meta_w_cost, meta_i_cost)], width = w, label='I-reg', color="#2a9d8f", linewidth=1, edgecolor='grey')
-ax[0].bar(X+(0.30), meta_w_cost, width = w, label='W-reg', color="#264653", linewidth=1, edgecolor='grey')
+ax[0].bar(X+(0.25), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost, meta_buff_cost, meta_dram_cost)], width = w, label='DRAM', color="#e76f51", linewidth=1, edgecolor='grey')
+ax[0].bar(X+(0.25), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost, meta_buff_cost)], width = w, label='shared_buff', color="#f4a261", linewidth=1, edgecolor='grey')
+ax[0].bar(X+(0.25), [sum(x) for x in zip(meta_w_cost, meta_i_cost, meta_o_cost)], width = w, label='O-reg', color="#e9c46a", linewidth=1, edgecolor='grey')
+ax[0].bar(X+(0.25), [sum(x) for x in zip(meta_w_cost, meta_i_cost)], width = w, label='I-reg', color="#2a9d8f", linewidth=1, edgecolor='grey')
+ax[0].bar(X+(0.25), meta_w_cost, width = w, label='W-reg', color="#264653", linewidth=1, edgecolor='grey')
 
 #plt.xticks(fontsize=13)
 ax[0].set_xticks([])
 # ax[0].set_xticklabels(labels, fontsize=10)
 # ax[0].tick_params(pad=40)
 
-plt.suptitle("AlexNet", fontsize=20, y=0.94)
+plt.suptitle("DarkNet19", fontsize=20, y=0.94)
 ax[0].set_ylabel("Energy (pJ)", fontsize=19, labelpad=10)
-ax[0].legend(loc='upper right', framealpha=1, ncol=5, edgecolor='grey', fontsize=17)
+ax[0].legend(loc='upper left', framealpha=1, ncol=5, edgecolor='grey', fontsize=17)
 ax[0].set_facecolor('#F2F2F2')
 
 ax[0].tick_params(axis='y', which='major', pad=5)
@@ -225,27 +211,25 @@ ax[0].grid(which='major', color='#CCCCCC', linestyle='-')
 ax[0].grid(which='minor', color='#CCCCCC', linestyle='--')
 ax[0].set_axisbelow(True)
 
-offset = 0.189
+offset = 0.085
 for i in range(number_of_layer):
     # ax[0].annotate('Timeloop', xy=(i*offset + 0.057, -0.18), xycoords='axes fraction', fontsize=10, rotation=-75)
     # ax[0].annotate('LOMA 7', xy=(i*offset + 0.095, -0.15), xycoords='axes fraction', fontsize=10, rotation=-75)
     # ax[0].annotate('LOMA Exh', xy=(i*offset + 0.135, -0.19), xycoords='axes fraction', fontsize=10, rotation=-75)
     # ax[0].annotate('SALSA', xy=(i*offset + 0.173, -0.15), xycoords='axes fraction', fontsize=10, rotation=-75)
 
-    ax[1].annotate('Timeloop', xy=(i*offset + 0.057, -0.365), xycoords='axes fraction', fontsize=19, rotation=-75)
-    ax[1].annotate('LOMA 7', xy=(i*offset + 0.095, -0.31), xycoords='axes fraction', fontsize=19, rotation=-75)
-    ax[1].annotate('LOMA Exh', xy=(i*offset + 0.13, -0.4), xycoords='axes fraction', fontsize=19, rotation=-75)
-    ax[1].annotate('SALSA', xy=(i*offset + 0.165, -0.265), xycoords='axes fraction', fontsize=19, rotation=-75)
+    ax[1].annotate('Timeloop', xy=(i*offset + 0.04, -0.365), xycoords='axes fraction', fontsize=19, rotation=-75)
+    ax[1].annotate('LOMA 7', xy=(i*offset + 0.063, -0.31), xycoords='axes fraction', fontsize=19, rotation=-75)
+    ax[1].annotate('SALSA', xy=(i*offset + 0.085, -0.265), xycoords='axes fraction', fontsize=19, rotation=-75)
 
 # Time Plot
 
-w = 0.2
+w = 0.25
 X = np.arange(1, number_of_layer+1)
 
-ax[1].bar(X-0.3, timeloop_time_list, width = w, color="#e76f51", linewidth=1, edgecolor='grey', label='Timeloop')
-ax[1].bar(X-0.1, loma_zigzag_time_list, width = w, color="#e9c46a", linewidth=1, edgecolor='grey', label='Loma 7')
-ax[1].bar(X+0.1, loma_exh_zigzag_time_list, width = w, color="#e9c46a", linewidth=1, edgecolor='grey', label='Loma Exh')
-ax[1].bar(X+0.3, meta_zigzag_time_list, width = w, color="#e9c46a", linewidth=1, edgecolor='grey', label='SALSA')
+ax[1].bar(X-0.25, timeloop_time_list, width = w, color="#e76f51", linewidth=1, edgecolor='grey', label='Timeloop')
+ax[1].bar(X-0.0, loma_zigzag_time_list, width = w, color="#e9c46a", linewidth=1, edgecolor='grey', label='Loma 7')
+ax[1].bar(X+0.25, meta_zigzag_time_list, width = w, color="#e9c46a", linewidth=1, edgecolor='grey', label='SALSA')
 
 plt.xticks(fontsize=14)
 ax[1].set_xticks(np.arange(1, len(labels)+1))
