@@ -47,7 +47,7 @@ def optimize(opt, number_of_thread, temporal_mapping_ordering, layer_post, layer
     # Initialize mac costs
     mac_costs = calculate_mac_level_costs(layer, layer_rounded, input_settings, mem_scheme, ii_su)
 
-    iter_number = 1000
+    iter_number = 3000
 
     exec_time_list = []
     best_value_list = []
